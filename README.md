@@ -1,1 +1,1 @@
-New Summative
+Movie Project using Vue.js, JavaScript, CSS, HTML, Firebase, Postman, Axios, TMDb API                                     

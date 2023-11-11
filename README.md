@@ -1,1 +1,3 @@
-Movie Project using Vue.js, JavaScript, CSS, HTML, Firebase, Postman, Axios, TMDb API                                     
+# Movie Project
+
+Created a responsive and user-friendly movie website to find any movie you want. Integrated data from the TMDb API for up-to-date content including an overview, trailer, genre, ratings, release dates, directors, writers, and more. Implemented an intuitive search bar for effortless movie discovery and selection. Utilized Firebase for user authentication, login management, and storage of liked movies and movie watch-list.

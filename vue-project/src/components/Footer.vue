@@ -2,46 +2,29 @@
 
 <template>
   <footer>
-    <div id="contact">
-      <h4>CONTACT US</h4>
-      <p>123-456-7890</p>
-      <p>123AWebsite.com</p>
-    </div>
-    <h3>123A-MOVIES</h3>
-    <div id="awards">
-      <h4>AWARDS</h4>
-      <p>Most used Movie Website 2023</p>
-      <p class="sources">(WorldWebsitesReview)</p>
-      <br />
-      <p>Most 5 stars reviews by a Movie Website 2023</p>
-      <p class="sources">(NY Times)</p>
-    </div>
+    <a href="https://allenzhang05.com/" target="_blank" class="contact-link"><h4>AllenZ05</h4></a>
+    <a href="https://allenzhang05.com/" target="_blank" class="contact-link"><h4>Contact</h4></a>
   </footer>
 </template>
 
 <style scoped>
 footer {
-  height: 20vh;
+  height: 15vh;
   color: white;
   background-color: black;
-
+  padding: 0 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  text-align: center;
+  font-size: 2rem;
 }
 
-footer h3 {
-  font-size: 2.5rem;
+.contact-link {
+  color: white;
+  text-decoration: none;
 }
 
-#contact h4,
-#awards h4 {
-  font-size: 1.5rem;
-  margin: 0.7rem;
-}
-
-.sources {
-  font-size: 0.7em;
+.contact-link:hover {
+  color: blue;
 }
 </style>

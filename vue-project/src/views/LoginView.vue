@@ -16,20 +16,16 @@ const router = useRouter();
 const emailRegister = ref("");
 const emailLogin = ref("");
 const passwordRegister = ref("");
-const passwordConfrim = ref("");
+const passwordConfirm = ref("");
 const passwordLogin = ref("");
 
 const registerViaEmail = async () => {
-  if (passwordRegister.value !== passwordConfrim.value) {
+  if (passwordRegister.value !== passwordConfirm.value) {
     alert("Passwords don't match!");
     return;
   }
 
-  const { user } = await createUserWithEmailAndPassword(
-    auth,
-    emailRegister.value,
-    passwordRegister.value
-  );
+  const { user } = await createUserWithEmailAndPassword(auth, emailRegister.value, passwordRegister.value);
 
   await setDoc(doc(firestore, "carts", user.email), { cart: [] });
 
@@ -41,11 +37,7 @@ const registerViaEmail = async () => {
 
 const loginViaEmail = async () => {
   try {
-    const { user } = await signInWithEmailAndPassword(
-      auth,
-      emailLogin.value,
-      passwordLogin.value
-    );
+    const { user } = await signInWithEmailAndPassword(auth, emailLogin.value, passwordLogin.value);
     store.user = user;
     const cartDoc = await getDoc(doc(firestore, "carts", user.email));
 
@@ -86,11 +78,7 @@ const registerViaGoogle = async () => {
       <form class="setup" @submit.prevent="registerViaEmail()">
         <input v-model="emailRegister" type="email" placeholder="Email" />
         <input v-model="passwordRegister" type="password" placeholder="Enter Password" />
-        <input
-          v-model="passwordConfrim"
-          type="password"
-          placeholder="Re-enter Password"
-        />
+        <input v-model="passwordConfirm" type="password" placeholder="Re-enter Password" />
         <input type="submit" value="Register" />
       </form>
       <hr id="divider" />

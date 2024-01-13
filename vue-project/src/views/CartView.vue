@@ -19,14 +19,12 @@ const removeFromCart = (index) => {
 <template>
   <div id="container">
     <h4>Cart</h4>
-    <button id="back-button" @click="router.push('/purchase')">Back</button>
-    <div v-for="(movie, index) in store.cart" :key="movie.id">
-      <div id="movieTitleAndNumber">
-        <div id="movie-number">{{ index + 1 }}</div>
-        <h1>{{ movie.title }}</h1>
-      </div>
+    <button class="back-button" @click="router.push('/purchase')">Back</button>
+    <div v-for="(movie, index) in store.cart" :key="movie.id" class="movie-item">
+      <div class="movie-number">{{ index + 1 }}</div>
+      <h1>{{ movie.title }}</h1>
       <img :src="`https://image.tmdb.org/t/p/w500/${movie.poster}`" />
-      <button id="delete-button" @click="removeFromCart(index)">Delete</button>
+      <button class="delete-button" @click="removeFromCart(index)">Delete</button>
     </div>
   </div>
 </template>
@@ -34,22 +32,21 @@ const removeFromCart = (index) => {
 <style scoped>
 #container {
   display: flex;
-  justify-content: center;
-  align-items: center;
   flex-direction: column;
+  align-items: center;
   color: white;
   background-color: black;
+  min-height: 100vh; 
+  padding-bottom: 1rem; 
 }
 
-#container h4 {
+h4 {
   font-size: 3rem;
-  margin: 1rem 1rem 3rem 1rem;
+  margin: 1rem;
 }
 
-#back-button {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+.back-button,
+.delete-button {
   width: 150px;
   height: 50px;
   background-color: #333;
@@ -57,28 +54,31 @@ const removeFromCart = (index) => {
   border-radius: 0.3rem;
   font-size: 1rem;
   cursor: pointer;
+  margin-top: 1rem;
 }
 
-#back-button:hover {
+.back-button:hover,
+.delete-button:hover {
   background-color: #555;
 }
 
-#back-button:focus {
+.back-button:focus,
+.delete-button:focus {
   outline: none;
 }
 
-#movieTitleAndNumber {
+.movie-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   margin-top: 2rem;
 }
 
-#movie-number {
+.movie-number {
   font-size: 2rem;
   border: 0.2rem solid white;
   border-radius: 50%;
-  margin: 0.2rem 1rem 0.2rem 0.2rem;
+  margin: 0.2rem 0 0.2rem 0.2rem;
   padding: 0.5rem;
   width: 2rem;
   height: 2rem;
@@ -89,27 +89,24 @@ const removeFromCart = (index) => {
 
 img {
   display: block;
-  margin: 0 auto;
+  margin-top: 1rem;
+  max-width: 100%;
 }
 
-#delete-button {
+.delete-button {
   background-color: red;
   color: white;
   border: none;
   border-radius: 0.3rem;
   padding: 0.5rem 1rem;
-  margin-top: 1rem;
   cursor: pointer;
-  display: block;
-  margin: 0 auto;
 }
 
-#delete-button:hover {
+.delete-button:hover {
   background-color: darkred;
 }
 
-#delete-button:focus {
+.delete-button:focus {
   outline: none;
 }
 </style>
-../firebase/index.js

@@ -12,9 +12,10 @@ header {
   justify-content: center;
   align-items: center;
   flex-direction: column;
-  height: 20vh;
+  height: 15vh;
   color: white;
   background-color: black;
+  font-size: 4rem;
 }
 
 h1 {

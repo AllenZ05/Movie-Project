@@ -64,14 +64,14 @@ onMounted(async () => {
 
 <template>
   <Teleport to="body">
-    <div id="ModalPage-outer-container" @click.self="$emit('toggleModal')">
-      <div id="ModalPage-inner-container">
+    <div id="outer-container" @click.self="$emit('toggleModal')">
+      <div id="inner-container">
         <button @click="$emit('toggleModal')">X</button>
-        <div v-if="movie" id="ModalPage-MovieInfo">
-          <div id="ModalPage-img-container">
-            <img id="ModalPage-img" :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`" alt="Movie poster" />
+        <div v-if="movie" id="MovieInfo">
+          <div id="img-container">
+            <img id="page-img" :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`" alt="Movie poster" />
           </div>
-          <div id="ModalPage-MovieText">
+          <div id="MovieText">
             <h1>{{ movie.title }}</h1>
             <h2 v-if="formattedReleaseDate">{{ formattedReleaseDate }}</h2>
             <p v-if="genreNames"><strong>Genre:</strong> {{ genreNames }}</p>
@@ -89,7 +89,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-#ModalPage-outer-container {
+#outer-container {
   position: fixed;
   top: 0;
   left: 0;
@@ -103,7 +103,7 @@ onMounted(async () => {
   z-index: 1000;
 }
 
-#ModalPage-inner-container {
+#inner-container {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -119,7 +119,7 @@ onMounted(async () => {
   animation: fadeInModal 0.3s ease-out forwards;
 }
 
-#ModalPage-inner-container button {
+#inner-container button {
   position: absolute;
   top: 1rem;
   right: 1rem;
@@ -133,44 +133,45 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-#ModalPage-inner-container button:hover {
+#inner-container button:hover {
   background-color: #ff4444;
 }
 
-#ModalPage-MovieInfo {
+#MovieInfo {
   display: flex;
-  justify-content: space-between; 
+  justify-content: space-between;
   width: 100%;
-  gap: 2rem;
+  gap: 1rem;
 }
 
-#ModalPage-img-container {
+#img-container {
   flex: 1;
   max-width: 40%;
 }
 
-#ModalPage-img {
+#page-img {
   width: 100%;
   height: auto;
-  border-radius: 8px 0 0 8px;
+  border-radius: 8px;
 }
 
-#ModalPage-MovieText {
+#MovieText {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   flex: 2;
   color: #ffffff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
   padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  text-align: left;
 }
 
-#ModalPage-MovieText h1,
-#ModalPage-MovieText h2 {
+#MovieText h1,
+#MovieText h2 {
   margin: 0.5rem 0;
 }
 
-#ModalPage-MovieText > p {
+#MovieText > p {
   font-size: 1rem;
   margin: 0.25rem 0;
   line-height: 1.5;
@@ -191,6 +192,8 @@ onMounted(async () => {
   cursor: pointer;
   transition: background-color 0.2s, transform 0.1s;
   align-self: center;
+  text-align: center;
+  justify-content: center;
 }
 
 #BuyButton:hover {
@@ -214,18 +217,85 @@ onMounted(async () => {
 
 /* Media Queries */
 
-@media (max-width: 768px) {
-  #ModalPage-MovieInfo {
-    flex-direction: column;
-    align-items: center; 
+@media (min-width: 992px) {
+  #inner-container {
+    flex-direction: row;
+    padding: 1rem;
   }
 
-  #ModalPage-img-container {
-    width: auto; 
+  #MovieInfo {
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  #inner-container {
+    max-width: 70vw;
   }
 
-  #ModalPage-MovieText {
-    text-align: center;
+  #img-container,
+  #MovieText {
+    padding: 1rem;
+  }
+
+  #BuyButton {
+    margin-top: 2rem;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767px) {
+  #inner-container {
+    margin: 1rem;
+  }
+
+  #img-container {
+    max-width: 50%;
+  }
+
+  #BuyButton {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 575px) {
+  #inner-container {
+    margin: 0.5rem;
+    max-height: 90vh;
+    max-width: 90vw;
+  }
+
+  #img-container {
+    padding: 0;
+  }
+
+  #MovieText {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  #BuyButton {
+    width: auto;
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    margin: 1rem 0;
+  }
+}
+
+@media (max-height: 500px) {
+  #inner-container {
+    flex-direction: row;
+    align-items: center;
+    max-height: none;
+  }
+
+  #MovieInfo {
+    flex-direction: row;
+  }
+
+  #img-container,
+  #MovieText {
+    max-width: 50%;
   }
 }
 </style>

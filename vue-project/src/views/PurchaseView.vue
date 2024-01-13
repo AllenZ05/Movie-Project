@@ -189,7 +189,7 @@ button:hover, img:hover {
 
 /* Media queries  */
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .header {
     flex-direction: column;
     align-items: stretch; 

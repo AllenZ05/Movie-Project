@@ -20,7 +20,7 @@ const currentParams = computed(() => ({
   api_key: TMDB_API_KEY,
   region: "US",
   language: "en",
-  include_adult: false,
+  include_adult: true,
   page: page.value,
   ...(genre.value && { with_genres: genre.value }),
   ...(search.value && { query: search.value }),

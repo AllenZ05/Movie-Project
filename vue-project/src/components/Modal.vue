@@ -39,6 +39,12 @@ onMounted(async () => {
         .map((actor) => actor.name)
         .join(", ") || "Data not available";
 
+    // Runtime
+    movie.value.runtime = movie.value.runtime || "Data not available";
+
+    // Rating
+    movie.value.vote_average = movie.value.vote_average || "Data not available";
+
     // Budget
     movie.value.formattedBudget =
       movie.value.budget > 1e6
@@ -50,12 +56,6 @@ onMounted(async () => {
       movie.value.revenue > 1e6
         ? movie.value.revenue.toLocaleString(undefined, { style: "currency", currency: "USD" })
         : "Data not available";
-
-    // Runtime
-    movie.value.runtime = movie.value.runtime || "Data not available";
-
-    // Rating
-    movie.value.vote_average = movie.value.vote_average || "Data not available";
   } catch (error) {
     console.error("Failed to fetch movie details:", error);
   }
@@ -69,7 +69,7 @@ onMounted(async () => {
         <button @click="$emit('toggleModal')">X</button>
         <div v-if="movie" id="ModalPage-MovieInfo">
           <div id="ModalPage-img-container">
-            <img id="ModalPage-img" :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`" />
+            <img id="ModalPage-img" :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`" alt="Movie poster" />
           </div>
           <div id="ModalPage-MovieText">
             <h1>{{ movie.title }}</h1>
@@ -92,85 +92,140 @@ onMounted(async () => {
 #ModalPage-outer-container {
   position: fixed;
   top: 0;
+  left: 0;
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 5;
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
 }
 
 #ModalPage-inner-container {
-  background-color: #404447;
-  width: clamp(20rem, 100%, 60rem);
-  position: relative;
-
-  border: 0.5rem solid rgb(40, 35, 47);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: #2c2f33;
+  box-shadow: 0 4px 10px 0 rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  overflow: auto;
+  max-height: 70vh;
+  max-width: 60vw;
+  width: auto;
+  margin: 2rem;
+  padding: 2rem;
+  animation: fadeInModal 0.3s ease-out forwards;
 }
 
 #ModalPage-inner-container button {
   position: absolute;
-  right: 0px;
-  padding: 1rem;
-  background: #31393f;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #ff5555;
+  border: none;
+  border-radius: 8px;
+  color: white;
   font-weight: bold;
-  font-size: 2rem;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+#ModalPage-inner-container button:hover {
+  background-color: #ff4444;
 }
 
 #ModalPage-MovieInfo {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  justify-content: space-between; 
+  width: 100%;
+  gap: 2rem;
 }
 
 #ModalPage-img-container {
-  width: 15rem;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  flex: 1;
+  max-width: 40%;
 }
 
 #ModalPage-img {
-  max-height: 100%;
-  max-width: 100%;
+  width: 100%;
+  height: auto;
+  border-radius: 8px 0 0 8px;
 }
 
 #ModalPage-MovieText {
-  font-size: 1rem;
-
-  flex: 1;
+  flex: 2;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
   padding: 1rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
 }
 
-#ModalPage-MovieText > h1,
-#ModalPage-MovieText > h2,
-#ModalPage-MovieText > h3 {
-  margin-bottom: 1rem;
+#ModalPage-MovieText h1,
+#ModalPage-MovieText h2 {
+  margin: 0.5rem 0;
+}
+
+#ModalPage-MovieText > p {
+  font-size: 1rem;
+  margin: 0.25rem 0;
+  line-height: 1.5;
 }
 
 #BuyButton {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  padding: 1rem;
-  background: #31393f;
-  font-size: 1.2rem;
-  width: 3rem;
+  padding: 1rem 2rem;
+  width: auto;
+  max-width: 15rem;
+  margin-top: auto;
+  margin-bottom: 1rem;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 1rem;
   cursor: pointer;
-  transition: 0.1s;
+  transition: background-color 0.2s, transform 0.1s;
+  align-self: center;
 }
 
 #BuyButton:hover {
-  background-color: #92a8b2;
+  background-color: #45a049;
 }
+
 #BuyButton:active {
-  background-color: #3c5059;
+  transform: scale(0.95);
+}
+
+@keyframes fadeInModal {
+  from {
+    transform: translateY(-20vh);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Media Queries */
+
+@media (max-width: 768px) {
+  #ModalPage-MovieInfo {
+    flex-direction: column;
+    align-items: center; 
+  }
+
+  #ModalPage-img-container {
+    width: auto; 
+  }
+
+  #ModalPage-MovieText {
+    text-align: center;
+  }
 }
 </style>

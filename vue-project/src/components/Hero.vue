@@ -14,10 +14,13 @@ const router = useRouter();
 
 <style scoped>
 @keyframes fadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
-
 
 main {
   background-image: url(../assets/HeroPage.jpg);
@@ -30,6 +33,8 @@ main {
   justify-content: center;
   align-items: center;
   flex-direction: column;
+
+  text-align: center;
 }
 
 h2 {
@@ -48,11 +53,13 @@ p {
   animation: fadeIn 2s ease-in-out;
 }
 
-h2, p {
+h2,
+p {
   transition: transform 0.3s ease-in-out;
 }
 
-h2:hover, p:hover {
+h2:hover,
+p:hover {
   transform: scale(1.2);
   color: #add8e6;
 }
@@ -71,11 +78,23 @@ h2:hover, p:hover {
 }
 
 #loginButton:hover {
-  background-color: #be5f5f;
+  background-color: #2e74b6;
   transform: scale(1.1);
 }
 
 #loginButton:active {
-  background-color: #921010;
+  background-color: #2836d2;
+}
+
+/* Media Queries */
+
+@media only screen and (max-width: 768px) {
+  h2 {
+    font-size: 2.5rem;
+  }
+
+  p {
+    font-size: 1.2rem;
+  }
 }
 </style>

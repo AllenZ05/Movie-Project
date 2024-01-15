@@ -15,10 +15,19 @@ header {
   height: 15vh;
   color: white;
   background-color: black;
-  font-size: 4rem;
+  text-align: center;
 }
 
 h1 {
   font-size: 5rem;
+  margin: 1rem;
+}
+
+/* Media Queries */
+
+@media screen and (max-width: 768px) {
+  h1 {
+    font-size: 3rem;
+  }
 }
 </style>

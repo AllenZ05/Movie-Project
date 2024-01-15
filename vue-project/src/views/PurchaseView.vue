@@ -97,11 +97,11 @@ const toggleModal = (id) => {
 <style scoped>
 .header {
   background-color: #2c3e50;
-  padding: 0.5rem 1rem; 
+  padding: 0.5rem 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .website-title {
@@ -110,7 +110,7 @@ const toggleModal = (id) => {
   text-align: left;
   margin-right: 2rem;
   margin-left: 1rem;
-  flex-grow: 1; 
+  flex-grow: 1;
 }
 
 .tiles {
@@ -127,26 +127,41 @@ const toggleModal = (id) => {
   align-items: center;
 }
 
-input[type="search"], select {
+input[type="search"],
+select {
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: white;
 }
 
-#search-button, .get-button, .cart-button {
+#search-button,
+.get-button,
+.cart-button {
   padding: 0.75rem 1rem;
   border: none;
   border-radius: 4px;
-  background-color: #3498db;
   color: white;
   cursor: pointer;
 }
 
-#search-button:hover, .get-button:hover, .cart-button:hover {
+#search-button,
+.get-button {
+  background-color: #3498db;
+}
+
+#search-button:hover,
+.get-button:hover {
   background-color: #2980b9;
 }
 
+.cart-button {
+  background-color: #4caf50;
+}
+
+.cart-button:hover {
+  background-color: #66bb6a;
+}
 
 select {
   padding: 0.5rem;
@@ -182,22 +197,23 @@ img {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-button:hover, img:hover {
+button:hover,
+img:hover {
   opacity: 0.8;
   transition: opacity 0.3s ease;
 }
 
 /* Media queries  */
 
-@media (max-width: 900px) {
+@media screen and (max-width: 900px) {
   .header {
     flex-direction: column;
-    align-items: stretch; 
+    align-items: stretch;
   }
 
   .website-title {
     margin-bottom: 1rem;
-    margin-left: 0; 
+    margin-left: 0;
   }
 
   .right-controls,
@@ -213,24 +229,24 @@ button:hover, img:hover {
   input[type="search"],
   select,
   button {
-    width: 100%; 
-    margin-bottom: 0.5rem; 
+    width: 100%;
+    margin-bottom: 0.5rem;
   }
 }
 
-@media (max-width: 1200px) {
+@media screen and (max-width: 1200px) {
   .tiles {
     grid-template-columns: repeat(4, 1fr);
   }
 }
 
-@media (max-width: 900px) {
+@media screen and (max-width: 900px) {
   .tiles {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 600px) {
+@media screen and (max-width: 600px) {
   .header {
     flex-direction: column;
     text-align: center;
@@ -251,8 +267,8 @@ button:hover, img:hover {
   }
 
   .pagination {
-    flex-wrap: wrap; 
-    justify-content: center; 
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
 </style>

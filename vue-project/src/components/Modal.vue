@@ -217,7 +217,7 @@ onMounted(async () => {
 
 /* Media Queries */
 
-@media (min-width: 992px) {
+@media screen and (min-width: 992px) {
   #inner-container {
     flex-direction: row;
     padding: 1rem;
@@ -228,7 +228,7 @@ onMounted(async () => {
   }
 }
 
-@media (min-width: 768px) and (max-width: 991px) {
+@media screen and (min-width: 768px) and (max-width: 991px) {
   #inner-container {
     max-width: 70vw;
   }
@@ -243,7 +243,7 @@ onMounted(async () => {
   }
 }
 
-@media (min-width: 576px) and (max-width: 767px) {
+@media screen and (min-width: 576px) and (max-width: 767px) {
   #inner-container {
     margin: 1rem;
   }
@@ -282,7 +282,7 @@ onMounted(async () => {
   }
 }
 
-@media (max-height: 500px) {
+@media screen and (max-height: 500px) {
   #inner-container {
     flex-direction: row;
     align-items: center;

@@ -103,6 +103,7 @@ main {
   display: flex;
   justify-content: center;
   align-items: center;
+  text-align: center;
 }
 
 .auth-container,
@@ -123,8 +124,9 @@ form {
 
 input[type="email"],
 input[type="password"] {
-  width: 50%;
+  width: 75%;
   padding: 1rem;
+  margin: 0.1rem;
   border-radius: 0.5em;
   background-color: #f2f2f2;
   font-size: 1rem;
@@ -133,16 +135,16 @@ input[type="password"] {
 #auth-button,
 input[type="submit"] {
   padding: 1rem;
+  margin: 0.5rem;
   border-radius: 0.5em;
   background-color: #007bff;
   color: white;
   font-size: 1rem;
-  margin: 0.2rem;
   cursor: pointer;
 }
 
 #auth-button {
-  width: 20%;
+  width: 40%;
 }
 
 input[type="submit"] {
@@ -151,6 +153,8 @@ input[type="submit"] {
 
 h2 {
   color: silver;
+  font-size: 2rem;
+  margin-bottom: 1rem;
 }
 
 #divider {
@@ -158,5 +162,18 @@ h2 {
   background-color: silver;
   border: none;
   margin: 2rem 0;
+}
+
+/* Media Queries */
+
+@media only screen and (max-width: 768px) {
+  main {
+    flex-direction: column;
+  }
+
+  #divider {
+    height: 0.5rem;
+    margin: 0.5rem;
+  }
 }
 </style>

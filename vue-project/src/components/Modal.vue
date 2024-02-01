@@ -32,6 +32,9 @@ onMounted(async () => {
     });
     movie.value = response.data;
 
+    // Overview
+    movie.overview = movie.value.overview || "Data not available";
+
     // Main Cast
     movie.value.mainCast =
       movie.value.credits.cast
@@ -74,6 +77,7 @@ onMounted(async () => {
           <div id="MovieText">
             <h1>{{ movie.title }}</h1>
             <h2 v-if="formattedReleaseDate">{{ formattedReleaseDate }}</h2>
+            <p v-if="movie.overview"><strong>Overview:</strong> {{ movie.overview }}</p>
             <p v-if="genreNames"><strong>Genre:</strong> {{ genreNames }}</p>
             <p v-if="movie.mainCast"><strong>Main Cast:</strong> {{ movie.mainCast }}</p>
             <p v-if="movie.runtime"><strong>Runtime:</strong> {{ movie.runtime }} minutes</p>

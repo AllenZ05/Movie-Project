@@ -88,17 +88,19 @@ onMounted(async () => {
             <p v-if="movie.vote_average"><strong>Rating:</strong> {{ movie.vote_average }}</p>
             <p><strong>Budget:</strong> {{ movie.formattedBudget }}</p>
             <p><strong>Revenue:</strong> {{ movie.formattedRevenue }}</p>
-            <div v-if="movie.trailerUrl" id="Trailer">
-              <iframe
-                :src="movie.trailerUrl"
-                title="Movie Trailer"
-                frameborder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
-              >
-              </iframe>
+            <div id="trailer-container">
+              <div v-if="movie.trailerUrl" id="Trailer">
+                <iframe
+                  :src="movie.trailerUrl"
+                  title="Movie Trailer"
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen
+                >
+                </iframe>
+              </div>
+              <p v-else>Trailer not available</p>
             </div>
-            <p v-else>Trailer not available</p>
             <h3 id="BuyButton" @click="store.addToCart(movie.poster_path, movie.title)">Buy</h3>
           </div>
         </div>
@@ -117,30 +119,24 @@ onMounted(async () => {
   align-items: center;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(5px);
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(7px);
   z-index: 10;
 }
 
 #inner-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 80%;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  background-color: #2c2f33;
-  box-shadow: 0 4px 10px 0 rgba(0, 0, 0, 0.5);
-  border-radius: 10px;
-  overflow: auto;
-  max-height: 70vh;
-  max-width: 70vw;
-  width: auto;
-  margin: 2rem;
-  padding: 2rem;
-  animation: fadeInModal 0.3s ease-out forwards;
-  max-width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: blue gray;
+  padding: 1rem;
 }
 
 #inner-container button {
@@ -163,8 +159,9 @@ onMounted(async () => {
 
 #MovieInfo {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 h1 {
@@ -177,11 +174,12 @@ h1 {
 #left-side,
 #right-side {
   flex: 1;
-  max-width: 50%;
+  padding: 0.5rem;
 }
 
 #left-side {
   grid-column: 1;
+  text-align: center;
 }
 
 #page-img {
@@ -198,17 +196,18 @@ h1 {
   color: #ffffff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
   padding: 1rem;
-  text-align: left;
   grid-column: 2;
+  text-align: center;
 }
 
 h2 {
+  font-size: 1.5rem;
   margin: 0.5rem 0;
 }
 
 #right-side > p {
   font-size: 1rem;
-  margin: 0.25rem 0;
+  margin: 0.75rem 0;
   line-height: 1.5;
 }
 
@@ -239,14 +238,20 @@ h2 {
   transform: scale(0.95);
 }
 
+#trailer-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 #Trailer {
   position: relative;
   overflow: hidden;
   margin: 1rem 0;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
   border-radius: 8px;
-  width: 30rem;
-  height: 20rem;
+  height: 18rem;
+  width: 25rem;
 }
 
 #Trailer iframe {
@@ -273,7 +278,6 @@ h2 {
 
 @media screen and (min-width: 1200px) {
   #inner-container {
-    flex-direction: row;
     padding: 2rem;
   }
 
@@ -282,9 +286,37 @@ h2 {
   }
 }
 
+@media screen and (max-width: 1024px) {
+  #MovieInfo {
+    flex-direction: column;
+  }
+  #left-side,
+  #right-side {
+    flex: 1 1 100%;
+  }
+}
+
+#left-side {
+  text-align: center;
+}
+
+#page-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+#right-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 2;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
 @media screen and (min-width: 768px) and (max-width: 1199px) {
   #inner-container {
-    flex-direction: column;
     padding: 1.5rem;
   }
 
@@ -297,12 +329,6 @@ h2 {
   #BuyButton {
     padding: 1rem;
     font-size: 1rem;
-  }
-}
-
-@media (max-width: 768px) {
-  #MovieInfo {
-    flex-direction: column;
   }
 }
 
@@ -337,16 +363,6 @@ h2 {
   #BuyButton {
     padding: 0.5rem 1rem;
     font-size: 0.8rem;
-  }
-}
-
-@media screen and (max-height: 500px) {
-  #inner-container {
-    flex-direction: column;
-  }
-
-  #MovieInfo {
-    flex-direction: column;
   }
 }
 </style>

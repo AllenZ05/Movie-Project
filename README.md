@@ -1,11 +1,9 @@
 # Movie Project
 
-A responsive and user-friendly movie website to find any movie you want. Integrated data from the TMDb API for up-to-date content including an overview, trailer, genre, ratings, release dates, cast, budget, revenue and more. Implemented an intuitive search bar for effortless movie discovery and selection. Utilized Firebase for user authentication, login management, and storage of liked movies and movie watch-list. 
+A responsive and user-friendly movie website to find any movie you want. Integrated data from the TMDb API for 24/7 up-to-date content. Implemented an intuitive search bar for effortless movie discovery and selection. Utilized Firebase for user authentication, login management, and storage of user's movies
 
-Started off as a fun little project I would build in grade 12 CS, however since I have vastly improved it and have added many new features in. 
-
-Was originally part of a much larger repo (which is private), however, when I finished the project I moved it to this new repo as the previous one could not be made public due to API key leaks, back when I was testing stuff out and made some oopsies :(
-
+Started off as a fun little project I would build in grade 12 CS, however I have vastly improved it and have added many new features in. 
+Was originally part of a much larger repo (which is private), however, when I finished the project I moved it to this new repo
 
 ### Timeline 
 
@@ -23,6 +21,20 @@ Was originally part of a much larger repo (which is private), however, when I fi
 - HTML
 - TMDB API
 - Postman 
+- Axios 
+
+## Features
+
+- **User Authentication:** Users can create accounts, log in, and manage their watchlist of favorite movies
+- **User Watchlist:** Registered users can add and remove movies from their watchlist for easy access
+- **Movie Search:** Explore an extensive movie database with a powerful search feature to find movies by title or genre
+- **Movie Details:** View detailed information about each movie, including overview, release date, genre, cast, runtime, budget, revenue, ratings, trailer, and more.
+
+## Getting Started
+
+- Clone the repository
+- Install the dependencies using `npm install`
+- Run the development server using `npm run dev`
 
 ## Hosted website 
 

@@ -7,12 +7,12 @@ import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBgxXwv-o38c_SKv_P2s3qSqEROXKMceK4",
-  authDomain: "cs12-summative.firebaseapp.com",
-  projectId: "cs12-summative",
-  storageBucket: "cs12-summative.appspot.com",
-  messagingSenderId: "283532596293",
-  appId: "1:283532596293:web:dc8b521236a345f15e7f2c"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
@@ -20,4 +20,4 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const firestore = getFirestore();
 
-export { auth, firestore}
+export { auth, firestore };

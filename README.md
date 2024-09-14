@@ -1,41 +1,38 @@
 # Movie Project
 
-A responsive and user-friendly movie website to find any movie you want. Integrated data from the TMDb API for 24/7 up-to-date content. Implemented an intuitive search bar for effortless movie discovery and selection. Utilized Firebase for user authentication, login management, and storage of user's movies
+A responsive, user-friendly movie website where you can discover any movie you want. The project integrates data from the TMDb API, ensuring up-to-date movie content around the clock. It features an intuitive search bar for seamless movie discovery and selection, and leverages Firebase for user authentication, login management, and storage of user watchlists
 
-Started off as a fun little project I would build in grade 12 CS, however I have vastly improved it and have added many new features in. 
-Was originally part of a much larger repo (which is private), however, when I finished the project I moved it to this new repo
-
-### Timeline 
-
-- May 2023 - June 2023 (Main development) 
-- July 2023 - August 2023 (Refactoring and small bug fixes) 
-- January 2024 (Major UI improvements and code refactoring)
-
-## Tech Stack and tools used 
-
-- Vue.js 
-- Vite.js 
-- Firebase 
-- JavaScript 
-- CSS
-- HTML
-- TMDB API
-- Postman 
-- Axios 
+Originally started as a fun project in my grade 12 CS class, the project has since undergone significant improvements with the addition of new features and enhancements. It was initially part of a larger private repository, but once the project was mostly completed, I moved it to this dedicated repo
 
 ## Features
 
-- **User Authentication:** Users can create accounts, log in, and manage their watchlist of favorite movies
-- **User Watchlist:** Registered users can add and remove movies from their watchlist for easy access
-- **Movie Search:** Explore an extensive movie database with a powerful search feature to find movies by title or genre
-- **Movie Details:** View detailed information about each movie, including overview, release date, genre, cast, runtime, budget, revenue, ratings, trailer, and more.
+- **User Authentication:** Secure account creation and login, allowing users to manage their preferences
+- **Watchlist Management:** Registered users can easily add or remove movies from their personal watchlist
+- **Movie Search:** A powerful search feature that enables users to explore a vast movie database by title or genre
+- **Detailed Movie Information:** Access comprehensive movie details, including synopsis, release date, genre, cast, runtime, budget, revenue, ratings, trailers, and more
+
+## Tech Stack and Tools Used 
+
+- **Framework:** Vue.js
+- **Build Tool:** Vite.js
+- **Backend:** Firebase (User Authentication, Login Management, Data Storage)
+- **Programming Languages:** JavaScript, CSS, HTML
+- **APIs:** TMDb API (Movie Data)
+- **Utilities:** Postman, Axios
 
 ## Getting Started
 
-- Clone the repository
-- Install the dependencies using `npm install`
-- Run the development server using `npm run dev`
+1. Clone the repository
+2. Install the dependencies using `npm install`
+3. Run the development server using `npm run dev`
+
+## Timeline 
+
+- **May - Jun 2023:** Main development
+- **Jul 2023 - Aug 2023:** Refactoring and small bug fixes
+- **Sep 2023:** Small improvements and movement to this repository
+- **Jan 2024:** Major UI and functionality enhancements and code refactoring
 
 ## Hosted website 
 
-**Website: https://cs12-summative.web.app/**
+**https://cs12-summative.web.app/**

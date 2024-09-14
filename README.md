@@ -22,9 +22,9 @@ Originally started as a fun project in my grade 12 CS class, the project has sin
 
 ## Getting Started
 
-1. Clone the repository
-2. Install the dependencies using `npm install`
-3. Run the development server using `npm run dev`
+1. **Clone** the repository
+2. **Install** the dependencies using `npm install`
+3. **Run** the development server using `npm run dev`
 
 ## Timeline 
 

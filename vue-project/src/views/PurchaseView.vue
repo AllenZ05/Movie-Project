@@ -1,9 +1,11 @@
 <script setup>
 import axios from "axios";
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import Modal from "../components/Modal.vue";
+import { useStore } from "../store";
 
+const store = useStore();
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const router = useRouter();
@@ -15,6 +17,10 @@ const page = ref(1);
 const totalPages = ref(0);
 const showModal = ref(false);
 const selectedMovieId = ref(null);
+
+// New states
+const isLoading = ref(false);
+const error = ref(null);
 
 const currentParams = computed(() => ({
   api_key: TMDB_API_KEY,
@@ -28,12 +34,20 @@ const currentParams = computed(() => ({
 
 const getMovies = async () => {
   const endpoint = search.value ? "search/movie" : "discover/movie";
+  error.value = null;
+  isLoading.value = true;
+  
   try {
-    const response = await axios.get(`${TMDB_BASE_URL}/${endpoint}`, { params: currentParams.value });
+    const response = await axios.get(`${TMDB_BASE_URL}/${endpoint}`, { 
+      params: currentParams.value 
+    });
     movies.value = response.data;
     totalPages.value = response.data.total_pages;
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    error.value = err.response?.data?.message || "Failed to load movies. Please try again.";
+    movies.value = null;
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -46,6 +60,11 @@ const toggleModal = (id) => {
   selectedMovieId.value = id;
   showModal.value = !showModal.value;
 };
+
+// Initial load
+onMounted(() => {
+  getMovies();
+});
 </script>
 
 <template>
@@ -53,9 +72,20 @@ const toggleModal = (id) => {
     <header class="header">
       <h1 class="website-title">123A-Movies</h1>
       <div class="right-controls">
-        <input type="search" placeholder="Enter search items" v-model="search" />
-        <button id="search-button" @click="getMovies">Search</button>
-        <select v-model="genre">
+        <input 
+          type="search" 
+          placeholder="Enter search items" 
+          v-model="search"
+          @keyup.enter="getMovies"
+        />
+        <button 
+          id="search-button" 
+          @click="getMovies"
+          :disabled="isLoading"
+        >
+          {{ isLoading ? 'Searching...' : 'Search' }}
+        </button>
+        <select v-model="genre" @change="getMovies">
           <option value="28">Action</option>
           <option value="10751">Family</option>
           <option value="878">Science Fiction</option>
@@ -76,20 +106,75 @@ const toggleModal = (id) => {
           <option value="18">Drama</option>
           <option value="10749">Romance</option>
         </select>
-        <button class="get-button" @click="getMovies">Get</button>
+        <button 
+          class="get-button" 
+          @click="getMovies"
+          :disabled="isLoading"
+        >
+          {{ isLoading ? 'Loading...' : 'Get' }}
+        </button>
         <div class="pagination">
-          <button @click="navigate(-1)">Prev</button>
+          <button 
+            @click="navigate(-1)" 
+            :disabled="page === 1 || isLoading"
+          >
+            Prev
+          </button>
           <span>Page {{ page }} of {{ totalPages }}</span>
-          <button @click="navigate(1)">Next</button>
+          <button 
+            @click="navigate(1)" 
+            :disabled="page === totalPages || isLoading"
+          >
+            Next
+          </button>
         </div>
         <button class="cart-button" @click="router.push('/cart')">Cart</button>
       </div>
     </header>
-    <div v-if="movies" class="tiles">
-      <div v-for="movie in movies.results" :key="movie.id" class="tile">
-        <img :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`" @click="toggleModal(movie.id)" />
+
+    <!-- Error Message -->
+    <div v-if="error" class="error-message">
+      {{ error }}
+      <button @click="getMovies" class="retry-button">Try Again</button>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="isLoading" class="loading-container">
+      <div v-for="n in 10" :key="n" class="loading-tile">
+        <div class="loading-animation"></div>
       </div>
     </div>
+
+        <!-- Movies Grid -->
+    <div v-else-if="movies?.results?.length" class="tiles">
+      <div v-for="movie in movies.results" :key="movie.id" class="tile">
+        <img 
+          v-if="movie.poster_path"
+          :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
+          @click="toggleModal(movie.id)"
+          :alt="movie.title"
+          loading="lazy"
+        />
+        <div 
+          v-else 
+          class="poster-placeholder"
+          @click="toggleModal(movie.id)"
+        >
+          <div class="poster-placeholder-content">
+            <div class="movie-title">{{ movie.title }}</div>
+            <div class="release-date" v-if="movie.release_date">
+              {{ new Date(movie.release_date).getFullYear() }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- No Results -->
+    <div v-else-if="movies && !movies.results?.length" class="no-results">
+      No movies found. Try different search terms or filters.
+    </div>
+
     <Modal v-if="showModal" :id="selectedMovieId" @toggleModal="toggleModal" />
   </main>
 </template>
@@ -121,6 +206,7 @@ const toggleModal = (id) => {
   justify-items: center;
   padding: 0.5rem;
 }
+
 .right-controls {
   display: flex;
   gap: 1rem;
@@ -153,6 +239,12 @@ select {
 #search-button:hover,
 .get-button:hover {
   background-color: #2980b9;
+}
+
+#search-button:disabled,
+.get-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
 }
 
 .cart-button {
@@ -191,19 +283,151 @@ select {
   background-color: #2980b9;
 }
 
-img {
+.pagination button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.tile img {
   width: 100%;
   border-radius: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s;
 }
 
-button:hover,
-img:hover {
+.tile img:hover {
+  transform: scale(1.05);
+}
+
+.poster-placeholder {
+  aspect-ratio: 2/3;
+  width: 100%;
+  background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+  border-radius: 10px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.poster-placeholder:hover {
+  transform: scale(1.05);
+}
+
+.poster-placeholder-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  text-align: center;
+  color: white;
+}
+
+.movie-title {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  display: -webkit-box;
+  display: -moz-box;
+  display: box;
+  -webkit-line-clamp: 3;
+  -moz-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  -moz-box-orient: vertical;
+  box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.release-date {
+  font-size: 0.9rem;
   opacity: 0.8;
-  transition: opacity 0.3s ease;
 }
 
-/* Media queries  */
+/* Loading States */
+.loading-container {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  padding: 0.5rem;
+}
+
+.loading-tile {
+  aspect-ratio: 2/3;
+  background: #2c3e50;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.loading-animation {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    #2c3e50 0%,
+    #34495e 50%,
+    #2c3e50 100%
+  );
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Error and No Results States */
+.error-message {
+  margin: 2rem auto;
+  padding: 1rem;
+  background-color: #ff5555;
+  color: white;
+  border-radius: 8px;
+  text-align: center;
+  max-width: 500px;
+}
+
+.retry-button {
+  margin-left: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: white;
+  color: #ff5555;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.retry-button:hover {
+  background-color: #f8f8f8;
+}
+
+.no-results {
+  text-align: center;
+  padding: 2rem;
+  color: white;
+  font-size: 1.2rem;
+}
+
+/* Media Queries */
+@media screen and (max-width: 1200px) {
+  .tiles, .loading-container {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
 
 @media screen and (max-width: 900px) {
   .header {
@@ -216,14 +440,28 @@ img:hover {
     margin-left: 0;
   }
 
-  .right-controls,
-  .pagination {
+  .right-controls {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
+  }
+
+  .tiles, .loading-container {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .pagination {
     margin-top: 1rem;
+    justify-content: center;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .tiles, .loading-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .header {
+    padding: 0.5rem;
   }
 
   input[type="search"],
@@ -232,43 +470,10 @@ img:hover {
     width: 100%;
     margin-bottom: 0.5rem;
   }
-}
-
-@media screen and (max-width: 1200px) {
-  .tiles {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media screen and (max-width: 900px) {
-  .tiles {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media screen and (max-width: 600px) {
-  .header {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .website-title {
-    order: -1;
-    margin-bottom: 0.5rem;
-  }
-
-  .right-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .right-controls > * {
-    margin-bottom: 0.5rem;
-  }
 
   .pagination {
+    flex-direction: row;
     flex-wrap: wrap;
-    justify-content: center;
   }
 }
 </style>

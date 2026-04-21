@@ -12,10 +12,18 @@ const movie = ref(null);
 const addedToCart = ref(false);
 const isLoadingDetails = ref(true);
 
-// Lock body scroll while modal is open
-document.body.style.overflow = "hidden";
+// Lock body scroll while modal is open (including touch devices)
+const scrollY = window.scrollY;
+document.body.style.position = "fixed";
+document.body.style.top = `-${scrollY}px`;
+document.body.style.left = "0";
+document.body.style.right = "0";
 onUnmounted(() => {
-  document.body.style.overflow = "";
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  window.scrollTo(0, scrollY);
 });
 
 const genreNames = computed(() => movie.value?.genres?.map((genre) => genre.name).join(", ") || "");
@@ -101,9 +109,7 @@ onMounted(async () => {
   <Teleport to="body">
     <div id="outer-container" @click.self="emit('toggleModal')">
       <div id="inner-container">
-        <div class="close-bar">
-          <button class="close-btn" @click="emit('toggleModal')" aria-label="Close"></button>
-        </div>
+        <button class="close-btn" @click="emit('toggleModal')" aria-label="Close"></button>
 
         <div class="modal-body">
           <div v-if="isLoadingDetails" class="modal-loading">Loading movie details...</div>
@@ -174,6 +180,7 @@ onMounted(async () => {
   backdrop-filter: blur(7px);
   z-index: 10;
   animation: fadeInOverlay 0.25s ease-out;
+  overscroll-behavior: contain;
 }
 
 @keyframes fadeInOverlay {
@@ -195,19 +202,10 @@ onMounted(async () => {
   animation: slideUp 0.3s ease-out;
 }
 
-.close-bar {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.75rem 0.75rem 0.5rem;
-}
-
 .modal-body {
   overflow-y: auto;
-  padding: 0 2rem 2rem;
-  flex: 1;
+  overscroll-behavior: contain;
+  padding: 2rem;
 }
 
 @keyframes slideUp {
@@ -222,12 +220,15 @@ onMounted(async () => {
 }
 
 .close-btn {
-  width: 36px;
-  height: 36px;
-  background-color: rgba(255, 255, 255, 0.15);
+  position: fixed;
+  top: max(1rem, 5vh);
+  right: max(1rem, 5vw);
+  width: 40px;
+  height: 40px;
+  background-color: rgba(0, 0, 0, 0.6);
   border-radius: 50%;
+  z-index: 11;
   transition: background-color 0.2s;
-  flex-shrink: 0;
 }
 
 .close-btn::before,

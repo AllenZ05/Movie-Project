@@ -6,19 +6,23 @@ const router = useRouter();
 
 <template>
   <main>
-    <h2>The number one movie website</h2>
-    <p>Explore your favorite movies in one place! Stay updated with the latest and trending releases!</p>
-    <button id="loginButton" @click="router.push('/login')">Login</button>
+    <div class="hero-content">
+      <h2>The number one movie website</h2>
+      <p>Explore your favorite movies in one place! Stay updated with the latest and trending releases!</p>
+      <button id="loginButton" @click="router.push('/login')">Get Started</button>
+    </div>
   </main>
 </template>
 
 <style scoped>
 @keyframes fadeIn {
-  0% {
+  from {
     opacity: 0;
+    transform: translateY(10px);
   }
-  100% {
+  to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -28,73 +32,67 @@ main {
   background-position: center center;
   background-size: cover;
   height: 100vh;
-
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-direction: column;
+}
 
+.hero-content {
   text-align: center;
+  max-width: 700px;
+  padding: 2rem;
 }
 
 h2 {
   color: white;
   font-size: 3rem;
-  margin-bottom: 2rem;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  animation: fadeIn 2s ease-in-out;
+  margin-bottom: 1.5rem;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.6);
+  animation: fadeIn 0.8s ease-out;
 }
 
 p {
-  color: white;
-  font-size: 1.5rem;
-  margin-bottom: 5rem;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  animation: fadeIn 2s ease-in-out;
-}
-
-h2,
-p {
-  transition: transform 0.3s ease-in-out;
-}
-
-h2:hover,
-p:hover {
-  transform: scale(1.2);
-  color: #add8e6;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.25rem;
+  margin-bottom: 3rem;
+  line-height: 1.6;
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.8s ease-out 0.2s both;
 }
 
 #loginButton {
-  width: 150px;
-  height: 50px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: background-color 0.3s ease;
-  border-radius: 0.7rem;
-  font-size: 1.2rem;
-
-  transition: transform 0.3s ease-in-out;
+  padding: 1rem 2.5rem;
+  background-color: #007bff;
+  color: white;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition:
+    background-color 0.2s,
+    transform 0.15s;
+  animation: fadeIn 0.8s ease-out 0.4s both;
 }
 
 #loginButton:hover {
-  background-color: #2e74b6;
-  transform: scale(1.1);
+  background-color: #0056b3;
+  transform: translateY(-2px);
 }
 
 #loginButton:active {
-  background-color: #2836d2;
+  transform: translateY(0);
 }
-
-/* Media Queries */
 
 @media only screen and (max-width: 768px) {
   h2 {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
   }
 
   p {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+  }
+
+  .hero-content {
+    padding: 1rem;
   }
 }
 </style>

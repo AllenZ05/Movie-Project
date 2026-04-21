@@ -11,23 +11,21 @@ header {
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-direction: column;
-  height: 15vh;
+  height: 12vh;
   color: white;
-  background-color: black;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
   text-align: center;
 }
 
 h1 {
-  font-size: 5rem;
-  margin: 1rem;
+  font-size: 4rem;
+  letter-spacing: 0.15em;
+  font-weight: 800;
 }
-
-/* Media Queries */
 
 @media screen and (max-width: 768px) {
   h1 {
-    font-size: 3rem;
+    font-size: 2.5rem;
   }
 }
 </style>

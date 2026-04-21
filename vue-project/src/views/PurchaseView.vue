@@ -10,6 +10,11 @@ const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const router = useRouter();
 
+const logout = () => {
+  store.logout();
+  router.push("/");
+};
+
 const genre = ref(28);
 const search = ref("");
 const movies = ref(null);
@@ -18,7 +23,6 @@ const totalPages = ref(0);
 const showModal = ref(false);
 const selectedMovieId = ref(null);
 
-// New states
 const isLoading = ref(false);
 const error = ref(null);
 
@@ -36,10 +40,10 @@ const getMovies = async () => {
   const endpoint = search.value ? "search/movie" : "discover/movie";
   error.value = null;
   isLoading.value = true;
-  
+
   try {
-    const response = await axios.get(`${TMDB_BASE_URL}/${endpoint}`, { 
-      params: currentParams.value 
+    const response = await axios.get(`${TMDB_BASE_URL}/${endpoint}`, {
+      params: currentParams.value,
     });
     movies.value = response.data;
     totalPages.value = response.data.total_pages;
@@ -68,67 +72,53 @@ onMounted(() => {
 </script>
 
 <template>
-  <main>
+  <main class="purchase-view">
     <header class="header">
-      <h1 class="website-title">123A-Movies</h1>
-      <div class="right-controls">
-        <input 
-          type="search" 
-          placeholder="Enter search items" 
-          v-model="search"
-          @keyup.enter="getMovies"
-        />
-        <button 
-          id="search-button" 
-          @click="getMovies"
-          :disabled="isLoading"
-        >
-          {{ isLoading ? 'Searching...' : 'Search' }}
-        </button>
-        <select v-model="genre" @change="getMovies">
-          <option value="28">Action</option>
-          <option value="10751">Family</option>
-          <option value="878">Science Fiction</option>
-          <option value="12">Adventure</option>
-          <option value="14">Fantasy</option>
-          <option value="10770">TV Movie</option>
-          <option value="16">Animation</option>
-          <option value="36">History</option>
-          <option value="53">Thriller</option>
-          <option value="35">Comedy</option>
-          <option value="27">Horror</option>
-          <option value="10752">War</option>
-          <option value="80">Crime</option>
-          <option value="10402">Music</option>
-          <option value="37">Western</option>
-          <option value="99">Documentary</option>
-          <option value="9648">Mystery</option>
-          <option value="18">Drama</option>
-          <option value="10749">Romance</option>
-        </select>
-        <button 
-          class="get-button" 
-          @click="getMovies"
-          :disabled="isLoading"
-        >
-          {{ isLoading ? 'Loading...' : 'Get' }}
-        </button>
-        <div class="pagination">
-          <button 
-            @click="navigate(-1)" 
-            :disabled="page === 1 || isLoading"
-          >
-            Prev
+      <div class="nav-bar">
+        <h1 class="website-title">123A-Movies</h1>
+        <div class="nav-actions">
+          <button class="cart-button" @click="router.push('/cart')">
+            Cart
+            <span v-if="store.cartCount" class="cart-badge">{{ store.cartCount }}</span>
           </button>
-          <span>Page {{ page }} of {{ totalPages }}</span>
-          <button 
-            @click="navigate(1)" 
-            :disabled="page === totalPages || isLoading"
-          >
-            Next
+          <button class="logout-button" @click="logout">Logout</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="search-group">
+          <input type="search" placeholder="Search movies..." v-model="search" @keyup.enter="getMovies" />
+          <button class="search-btn" @click="getMovies" :disabled="isLoading">
+            {{ isLoading ? "..." : "Search" }}
           </button>
         </div>
-        <button class="cart-button" @click="router.push('/cart')">Cart</button>
+        <div class="filter-group">
+          <select v-model="genre" @change="getMovies">
+            <option value="28">Action</option>
+            <option value="10751">Family</option>
+            <option value="878">Sci-Fi</option>
+            <option value="12">Adventure</option>
+            <option value="14">Fantasy</option>
+            <option value="10770">TV Movie</option>
+            <option value="16">Animation</option>
+            <option value="36">History</option>
+            <option value="53">Thriller</option>
+            <option value="35">Comedy</option>
+            <option value="27">Horror</option>
+            <option value="10752">War</option>
+            <option value="80">Crime</option>
+            <option value="10402">Music</option>
+            <option value="37">Western</option>
+            <option value="99">Documentary</option>
+            <option value="9648">Mystery</option>
+            <option value="18">Drama</option>
+            <option value="10749">Romance</option>
+          </select>
+        </div>
+        <div class="pagination">
+          <button @click="navigate(-1)" :disabled="page === 1 || isLoading">&lsaquo;</button>
+          <span>{{ page }} / {{ totalPages }}</span>
+          <button @click="navigate(1)" :disabled="page === totalPages || isLoading">&rsaquo;</button>
+        </div>
       </div>
     </header>
 
@@ -145,21 +135,17 @@ onMounted(() => {
       </div>
     </div>
 
-        <!-- Movies Grid -->
+    <!-- Movies Grid -->
     <div v-else-if="movies?.results?.length" class="tiles">
       <div v-for="movie in movies.results" :key="movie.id" class="tile">
-        <img 
+        <img
           v-if="movie.poster_path"
           :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
           @click="toggleModal(movie.id)"
           :alt="movie.title"
           loading="lazy"
         />
-        <div 
-          v-else 
-          class="poster-placeholder"
-          @click="toggleModal(movie.id)"
-        >
+        <div v-else class="poster-placeholder" @click="toggleModal(movie.id)">
           <div class="poster-placeholder-content">
             <div class="movie-title">{{ movie.title }}</div>
             <div class="release-date" v-if="movie.release_date">
@@ -180,222 +166,292 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.purchase-view {
+  min-height: 100vh;
+}
+
+/* === Header === */
 .header {
-  background-color: #2c3e50;
-  padding: 0.5rem 1rem;
+  background: rgba(15, 15, 35, 0.95);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nav-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0.75rem 1.5rem;
 }
 
 .website-title {
-  color: white;
-  font-size: 2rem;
-  text-align: left;
-  margin-right: 2rem;
-  margin-left: 1rem;
-  flex-grow: 1;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-auto-rows: minmax(100px, auto);
-  gap: 1rem;
-  justify-items: center;
-  padding: 0.5rem;
-}
-
-.right-controls {
+.nav-actions {
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
   align-items: center;
 }
 
-input[type="search"],
-select {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background-color: white;
-}
-
-#search-button,
-.get-button,
-.cart-button {
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 4px;
+.cart-button,
+.logout-button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
   color: white;
-  cursor: pointer;
-}
-
-#search-button,
-.get-button {
-  background-color: #3498db;
-}
-
-#search-button:hover,
-.get-button:hover {
-  background-color: #2980b9;
-}
-
-#search-button:disabled,
-.get-button:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
+  transition: background-color 0.2s;
 }
 
 .cart-button {
-  background-color: #4caf50;
+  background-color: rgba(255, 255, 255, 0.1);
+  position: relative;
 }
 
 .cart-button:hover {
-  background-color: #66bb6a;
+  background-color: rgba(255, 255, 255, 0.18);
 }
 
-select {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background-color: white;
-  margin-right: 0.5rem;
+.cart-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff5555;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: bold;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-button {
+  background-color: transparent;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.logout-button:hover {
+  color: #ff6b6b;
+  background-color: rgba(255, 107, 107, 0.1);
+}
+
+/* === Toolbar === */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1.5rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.search-group {
+  display: flex;
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+.search-group input {
+  flex: 1;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  font-size: 0.9rem;
+}
+
+.search-group input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.search-group input:focus {
+  outline: none;
+  border-color: #8ab4f8;
+}
+
+.search-btn {
+  padding: 0.55rem 1rem;
+  border-radius: 0 6px 6px 0;
+  background: #8ab4f8;
+  color: #1a1a2e;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: background-color 0.2s;
+}
+
+.search-btn:hover:not(:disabled) {
+  background: #aecbfa;
+}
+
+.search-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.filter-group select {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: #8ab4f8;
+}
+
+.filter-group select option {
+  background: #1a1a2e;
+  color: white;
 }
 
 .pagination {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  color: white;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.pagination span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+  min-width: 3.5rem;
+  text-align: center;
 }
 
 .pagination button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  background-color: #3498db;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
   color: white;
-  cursor: pointer;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
 }
 
-.pagination button:hover {
-  background-color: #2980b9;
+.pagination button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .pagination button:disabled {
-  background-color: #95a5a6;
+  opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* === Movie Grid === */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  padding: 1rem 1.5rem;
 }
 
 .tile img {
   width: 100%;
-  border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .tile img:hover {
-  transform: scale(1.05);
+  transform: scale(1.04);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .poster-placeholder {
   aspect-ratio: 2/3;
   width: 100%;
-  background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
-  border-radius: 10px;
+  background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
+  border-radius: 8px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s;
 }
 
 .poster-placeholder:hover {
-  transform: scale(1.05);
+  transform: scale(1.04);
 }
 
 .poster-placeholder-content {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 1rem;
   text-align: center;
-  color: white;
 }
 
 .movie-title {
-  font-size: 1rem;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
   display: -webkit-box;
-  display: -moz-box;
-  display: box;
   -webkit-line-clamp: 3;
-  -moz-line-clamp: 3;
-  line-clamp: 3;
   -webkit-box-orient: vertical;
-  -moz-box-orient: vertical;
-  box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .release-date {
-  font-size: 0.9rem;
-  opacity: 0.8;
+  font-size: 0.8rem;
+  opacity: 0.6;
 }
 
-/* Loading States */
+/* === Loading === */
 .loading-container {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 1rem;
-  padding: 0.5rem;
+  padding: 1rem 1.5rem;
 }
 
 .loading-tile {
   aspect-ratio: 2/3;
-  background: #2c3e50;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
   overflow: hidden;
 }
 
 .loading-animation {
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    #2c3e50 0%,
-    #34495e 50%,
-    #2c3e50 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.04) 50%, transparent 100%);
   background-size: 200% 100%;
-  animation: loading 1.5s infinite;
+  animation: shimmer 1.5s infinite;
 }
 
-@keyframes loading {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-/* Error and No Results States */
+/* === States === */
 .error-message {
   margin: 2rem auto;
-  padding: 1rem;
-  background-color: #ff5555;
-  color: white;
+  padding: 1rem 1.5rem;
+  background-color: rgba(255, 85, 85, 0.15);
+  border: 1px solid rgba(255, 85, 85, 0.3);
+  color: #ff8a8a;
   border-radius: 8px;
   text-align: center;
   max-width: 500px;
@@ -403,77 +459,76 @@ select {
 
 .retry-button {
   margin-left: 1rem;
-  padding: 0.5rem 1rem;
-  background-color: white;
-  color: #ff5555;
-  border: none;
+  padding: 0.4rem 1rem;
+  background-color: rgba(255, 85, 85, 0.2);
+  color: #ff8a8a;
+  border: 1px solid rgba(255, 85, 85, 0.3);
   border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .retry-button:hover {
-  background-color: #f8f8f8;
+  background-color: rgba(255, 85, 85, 0.3);
 }
 
 .no-results {
   text-align: center;
-  padding: 2rem;
-  color: white;
-  font-size: 1.2rem;
+  padding: 4rem 2rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.1rem;
 }
 
-/* Media Queries */
+/* === Responsive === */
 @media screen and (max-width: 1200px) {
-  .tiles, .loading-container {
+  .tiles,
+  .loading-container {
     grid-template-columns: repeat(4, 1fr);
   }
 }
 
 @media screen and (max-width: 900px) {
-  .header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .website-title {
-    margin-bottom: 1rem;
-    margin-left: 0;
-  }
-
-  .right-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .tiles, .loading-container {
+  .tiles,
+  .loading-container {
     grid-template-columns: repeat(3, 1fr);
   }
 
-  .pagination {
-    margin-top: 1rem;
-    justify-content: center;
+  .toolbar {
+    padding: 0.5rem 1rem 0.75rem;
+  }
+
+  .search-group {
+    max-width: none;
   }
 }
 
 @media screen and (max-width: 600px) {
-  .tiles, .loading-container {
+  .tiles,
+  .loading-container {
     grid-template-columns: repeat(2, 1fr);
+    padding: 0.75rem;
   }
 
-  .header {
-    padding: 0.5rem;
+  .nav-bar {
+    padding: 0.6rem 1rem;
   }
 
-  input[type="search"],
-  select,
-  button {
+  .toolbar {
+    padding: 0.5rem 1rem 0.6rem;
+    gap: 0.5rem;
+  }
+
+  .search-group {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .filter-group {
+    flex: 1;
+  }
+
+  .filter-group select {
     width: 100%;
-    margin-bottom: 0.5rem;
-  }
-
-  .pagination {
-    flex-direction: row;
-    flex-wrap: wrap;
   }
 }
 </style>

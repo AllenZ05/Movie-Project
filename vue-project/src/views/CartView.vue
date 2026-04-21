@@ -2,122 +2,262 @@
 import { useStore } from "../store/index.js";
 import { useRouter } from "vue-router";
 
-import { updateDoc, doc } from "firebase/firestore";
-import { firestore } from "../firebase";
-
 const router = useRouter();
 const store = useStore();
 
-const removeFromCart = (index) => {
-  store.cart.splice(index, 1);
-  updateDoc(doc(firestore, "carts", store.user.email), {
-    cart: store.cart,
-  });
+const formatYear = (date) => {
+  if (!date) return "";
+  return new Date(date).getFullYear();
 };
 </script>
 
 <template>
   <div id="container">
-    <h4>Cart</h4>
-    <button class="back-button" @click="router.push('/purchase')">Back</button>
-    <div v-for="(movie, index) in store.cart" :key="movie.id" class="movie-item">
-      <div class="movie-number">{{ index + 1 }}</div>
-      <h1>{{ movie.title }}</h1>
-      <img :src="`https://image.tmdb.org/t/p/w500/${movie.poster}`" class="movie-poster" />
-      <button class="delete-button" @click="removeFromCart(index)">Delete</button>
+    <div class="cart-header">
+      <button class="back-button" @click="router.push('/purchase')">&larr; Back to Movies</button>
+      <h1>
+        Your Cart <span v-if="store.cartCount">({{ store.cartCount }})</span>
+      </h1>
+    </div>
+
+    <div v-if="store.cart.length === 0" class="empty-cart">
+      <p>Your cart is empty.</p>
+      <button class="browse-button" @click="router.push('/purchase')">Browse Movies</button>
+    </div>
+
+    <div v-else class="cart-list">
+      <div v-for="(movie, index) in store.cart" :key="movie.id || index" class="movie-card">
+        <img
+          v-if="movie.poster"
+          :src="`https://image.tmdb.org/t/p/w500/${movie.poster}`"
+          :alt="movie.title"
+          class="movie-poster"
+        />
+        <div v-else class="poster-placeholder"></div>
+
+        <div class="movie-info">
+          <div class="movie-header">
+            <h2>{{ movie.title }}</h2>
+            <span v-if="movie.release_date" class="movie-year">{{ formatYear(movie.release_date) }}</span>
+          </div>
+
+          <div v-if="movie.genres?.length" class="movie-genres">
+            <span v-for="genre in movie.genres" :key="genre" class="genre-tag">{{ genre }}</span>
+          </div>
+
+          <p v-if="movie.overview" class="movie-overview">{{ movie.overview }}</p>
+
+          <div class="movie-meta">
+            <span v-if="movie.vote_average" class="meta-item">
+              <strong>{{ movie.vote_average.toFixed ? movie.vote_average.toFixed(1) : movie.vote_average }}</strong> / 10
+            </span>
+            <span v-if="movie.runtime" class="meta-item">{{ movie.runtime }} min</span>
+          </div>
+
+          <button class="delete-button" @click="store.removeFromCart(index)">Remove</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 #container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  color: #f3f3f3;
-  background-color: #1a1a1d;
   min-height: 100vh;
-  padding: 1rem 0;
+  padding: 2rem 1rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.cart-header {
+  margin-bottom: 2rem;
+}
+
+.cart-header h1 {
+  font-size: 2rem;
+  margin-top: 1rem;
+}
+
+.cart-header h1 span {
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: normal;
+}
+
+.back-button {
+  padding: 0.6rem 1.2rem;
+  background-color: transparent;
+  color: #8ab4f8;
+  border: 1px solid #8ab4f8;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.back-button:hover {
+  background-color: rgba(138, 180, 248, 0.1);
+}
+
+.empty-cart {
   text-align: center;
+  padding: 4rem 2rem;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.movie-item {
-  background-color: #242424;
-  border-radius: 10px;
-  padding: 1rem;
-  margin: 1rem auto;
-  max-width: 40rem;
-  width: 90%;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+.empty-cart p {
+  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
 }
 
-h4 {
-  font-size: 2.5rem;
-  margin: 1rem;
-  color: #eaeaea;
-}
-
-.back-button,
-.delete-button {
-  width: 150px;
-  height: 40px;
+.browse-button {
+  padding: 0.85rem 2rem;
   background-color: #4caf50;
   color: white;
-  border: none;
-  border-radius: 0.3rem;
+  border-radius: 6px;
   font-size: 1rem;
-  cursor: pointer;
-  margin-top: 1rem;
-  transition: background-color 0.3s;
+  transition: background-color 0.2s;
 }
 
-.back-button:hover,
-.delete-button:hover {
+.browse-button:hover {
   background-color: #66bb6a;
 }
 
-.back-button:focus,
-.delete-button:focus {
-  outline: none;
+.movie-card {
+  display: flex;
+  gap: 1.5rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  transition: background-color 0.2s;
 }
 
-.movie-number {
-  font-size: 1.5rem;
-  color: #eaeaea;
-  background-color: #333;
-  border-radius: 50%;
-  padding: 0.5rem;
-  width: 2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.movie-card:hover {
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .movie-poster {
-  margin-top: 1rem;
-  max-width: 100%;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  width: 140px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.poster-placeholder {
+  width: 140px;
+  aspect-ratio: 2/3;
+  background: linear-gradient(135deg, #34495e, #2c3e50);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.movie-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.movie-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.movie-header h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.movie-year {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1rem;
+}
+
+.movie-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.genre-tag {
+  background-color: rgba(138, 180, 248, 0.15);
+  color: #8ab4f8;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.movie-overview {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.movie-meta {
+  display: flex;
+  gap: 1rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+}
+
+.meta-item strong {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .delete-button {
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 0.45rem 1rem;
+  background-color: transparent;
+  color: #ff6b6b;
+  border: 1px solid #ff6b6b;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.delete-button:hover {
   background-color: #ff6b6b;
   color: white;
-  border: none;
-  border-radius: 0.3rem;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-.delete-button:hover {
-  background-color: #ff5252;
 }
 
-.back-button,
-.delete-button {
-  font-family: "Roboto", sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.05rem;
+@media screen and (max-width: 600px) {
+  .movie-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .movie-poster {
+    width: 180px;
+  }
+
+  .movie-header {
+    justify-content: center;
+  }
+
+  .movie-genres {
+    justify-content: center;
+  }
+
+  .movie-overview {
+    -webkit-line-clamp: 4;
+  }
+
+  .movie-meta {
+    justify-content: center;
+  }
+
+  .delete-button {
+    align-self: center;
+  }
 }
 </style>

@@ -3,12 +3,20 @@ import axios from "axios";
 import { useStore } from "../store";
 import { ref, onMounted, computed } from "vue";
 
+import { onUnmounted } from "vue";
+
 const store = useStore();
 const props = defineProps(["id"]);
 const emit = defineEmits(["toggleModal"]);
 const movie = ref(null);
 const addedToCart = ref(false);
 const isLoadingDetails = ref(true);
+
+// Lock body scroll while modal is open
+document.body.style.overflow = "hidden";
+onUnmounted(() => {
+  document.body.style.overflow = "";
+});
 
 const genreNames = computed(() => movie.value?.genres?.map((genre) => genre.name).join(", ") || "");
 
@@ -93,53 +101,60 @@ onMounted(async () => {
   <Teleport to="body">
     <div id="outer-container" @click.self="emit('toggleModal')">
       <div id="inner-container">
-        <button class="close-btn" @click="emit('toggleModal')" aria-label="Close"></button>
-
-        <div v-if="isLoadingDetails" class="modal-loading">Loading movie details...</div>
-
-        <div v-else-if="movie" id="MovieInfo">
-          <div id="left-side">
-            <h1>{{ movie.title }}</h1>
-            <img
-              v-if="movie.poster_path"
-              id="page-img"
-              :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
-              :alt="`${movie.title} poster`"
-            />
-          </div>
-          <div id="right-side">
-            <h2 v-if="formattedReleaseDate">{{ formattedReleaseDate }}</h2>
-            <p v-if="movie.overview"><strong>Overview:</strong> {{ movie.overview }}</p>
-            <p v-if="genreNames"><strong>Genre:</strong> {{ genreNames }}</p>
-            <p v-if="movie.mainCast"><strong>Main Cast:</strong> {{ movie.mainCast }}</p>
-            <p v-if="movie.runtime"><strong>Runtime:</strong> {{ movie.runtime }} minutes</p>
-            <p v-if="movie.vote_average"><strong>Rating:</strong> {{ movie.vote_average.toFixed(1) }} / 10</p>
-            <p><strong>Budget:</strong> {{ movie.formattedBudget }}</p>
-            <p><strong>Revenue:</strong> {{ movie.formattedRevenue }}</p>
-            <div id="trailer-container">
-              <div v-if="movie.trailerUrl" id="Trailer">
-                <iframe
-                  :src="movie.trailerUrl"
-                  title="Movie Trailer"
-                  frameborder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowfullscreen
-                ></iframe>
-              </div>
-              <p v-else class="no-trailer">Trailer not available</p>
-            </div>
-            <button
-              id="BuyButton"
-              @click="handleAddToCart"
-              :disabled="addedToCart !== false"
-              :class="{ added: addedToCart === true, duplicate: addedToCart === 'duplicate' }"
-            >
-              {{ addedToCart === "duplicate" ? "Already in Cart" : addedToCart ? "Added to Cart!" : "Add to Cart" }}
-            </button>
-          </div>
+        <div class="close-bar">
+          <button class="close-btn" @click="emit('toggleModal')" aria-label="Close"></button>
         </div>
 
-        <div v-else class="modal-loading">Failed to load movie details.</div>
+        <div class="modal-body">
+          <div v-if="isLoadingDetails" class="modal-loading">Loading movie details...</div>
+
+          <div v-else-if="movie" id="MovieInfo">
+            <div id="left-side">
+              <h1>{{ movie.title }}</h1>
+              <img
+                v-if="movie.poster_path"
+                id="page-img"
+                :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
+                :alt="`${movie.title} poster`"
+              />
+            </div>
+            <div id="right-side">
+              <h2 v-if="formattedReleaseDate">{{ formattedReleaseDate }}</h2>
+              <p v-if="movie.overview"><strong>Overview:</strong> {{ movie.overview }}</p>
+              <p v-if="genreNames"><strong>Genre:</strong> {{ genreNames }}</p>
+              <p v-if="movie.mainCast"><strong>Main Cast:</strong> {{ movie.mainCast }}</p>
+              <p v-if="movie.runtime"><strong>Runtime:</strong> {{ movie.runtime }} minutes</p>
+              <p v-if="movie.vote_average"><strong>Rating:</strong> {{ movie.vote_average.toFixed(1) }} / 10</p>
+              <p><strong>Budget:</strong> {{ movie.formattedBudget }}</p>
+              <p><strong>Revenue:</strong> {{ movie.formattedRevenue }}</p>
+              <div id="trailer-container">
+                <div v-if="movie.trailerUrl" id="Trailer">
+                  <iframe
+                    :src="movie.trailerUrl"
+                    title="Movie Trailer"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen
+                  ></iframe>
+                </div>
+                <p v-else class="no-trailer">Trailer not available</p>
+              </div>
+              <div class="bottom-actions">
+                <button
+                  id="BuyButton"
+                  @click="handleAddToCart"
+                  :disabled="addedToCart !== false"
+                  :class="{ added: addedToCart === true, duplicate: addedToCart === 'duplicate' }"
+                >
+                  {{ addedToCart === "duplicate" ? "Already in Cart" : addedToCart ? "Added to Cart!" : "Add to Cart" }}
+                </button>
+                <button class="close-bottom-btn" @click="emit('toggleModal')">Close</button>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="modal-loading">Failed to load movie details.</div>
+        </div>
       </div>
     </div>
   </Teleport>
@@ -175,11 +190,24 @@ onMounted(async () => {
   width: 80%;
   max-width: 90vw;
   max-height: 90vh;
-  overflow: auto;
   display: flex;
   flex-direction: column;
-  padding: 2rem;
   animation: slideUp 0.3s ease-out;
+}
+
+.close-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 0.75rem 0.5rem;
+}
+
+.modal-body {
+  overflow-y: auto;
+  padding: 0 2rem 2rem;
+  flex: 1;
 }
 
 @keyframes slideUp {
@@ -194,15 +222,12 @@ onMounted(async () => {
 }
 
 .close-btn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
   width: 36px;
   height: 36px;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.15);
   border-radius: 50%;
-  z-index: 1;
   transition: background-color 0.2s;
+  flex-shrink: 0;
 }
 
 .close-btn::before,
@@ -290,10 +315,18 @@ h2 {
   font-style: italic;
 }
 
+.bottom-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
 #BuyButton {
   padding: 1rem 2rem;
   max-width: 15rem;
-  margin-top: 1.5rem;
   background-color: #4caf50;
   color: white;
   border-radius: 8px;
@@ -302,7 +335,20 @@ h2 {
   transition:
     background-color 0.2s,
     transform 0.1s;
-  align-self: center;
+}
+
+.close-bottom-btn {
+  display: none;
+  padding: 1rem 2rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.close-bottom-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 #BuyButton:hover:not(:disabled) {
@@ -363,12 +409,20 @@ h2 {
   h1 {
     font-size: 2rem;
   }
+
+  .close-bottom-btn {
+    display: block;
+  }
 }
 
 @media screen and (max-width: 575px) {
   #inner-container {
-    padding: 1rem 0.5rem;
     width: 95%;
+    max-height: 95vh;
+  }
+
+  .modal-body {
+    padding: 0 1rem 1.5rem;
   }
 
   #right-side > p {
@@ -378,6 +432,15 @@ h2 {
   #BuyButton {
     padding: 0.75rem 1.5rem;
     font-size: 0.9rem;
+  }
+
+  .bottom-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .bottom-actions button {
+    width: 100%;
   }
 
   #Trailer {

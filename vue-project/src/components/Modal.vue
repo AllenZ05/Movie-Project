@@ -199,6 +199,10 @@ onMounted(async () => {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   animation: slideUp 0.3s ease-out;
 }
 
@@ -274,7 +278,7 @@ h1 {
   margin: 0.5rem 0;
   font-size: 2.5rem;
   color: #ffffff;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  letter-spacing: -0.01em;
 }
 
 #left-side {
@@ -295,7 +299,6 @@ h1 {
   justify-content: flex-start;
   flex: 2;
   color: #ffffff;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
   text-align: left;
 }
 
@@ -328,13 +331,13 @@ h2 {
 #BuyButton {
   padding: 1rem 2rem;
   max-width: 15rem;
-  background-color: #4caf50;
+  background: var(--accent-strong);
   color: white;
-  border-radius: 8px;
-  font-weight: bold;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
   font-size: 1rem;
   transition:
-    background-color 0.2s,
+    filter 0.2s,
     transform 0.1s;
 }
 
@@ -353,7 +356,7 @@ h2 {
 }
 
 #BuyButton:hover:not(:disabled) {
-  background-color: #45a049;
+  filter: brightness(1.15);
 }
 
 #BuyButton:active:not(:disabled) {
@@ -365,11 +368,11 @@ h2 {
 }
 
 #BuyButton.added {
-  background-color: #2196f3;
+  background: #17945f;
 }
 
 #BuyButton.duplicate {
-  background-color: #666;
+  background: #565669;
 }
 
 #trailer-container {
@@ -423,7 +426,7 @@ h2 {
   }
 
   .modal-body {
-    padding: 0 1rem 1.5rem;
+    padding: 1rem 1rem 1.5rem;
   }
 
   #right-side > p {

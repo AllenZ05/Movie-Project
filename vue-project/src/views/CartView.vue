@@ -86,15 +86,15 @@ const formatYear = (date) => {
 .back-button {
   padding: 0.6rem 1.2rem;
   background-color: transparent;
-  color: #8ab4f8;
-  border: 1px solid #8ab4f8;
-  border-radius: 6px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
   transition: all 0.2s;
 }
 
 .back-button:hover {
-  background-color: rgba(138, 180, 248, 0.1);
+  background-color: var(--accent-soft);
 }
 
 .empty-cart {
@@ -110,29 +110,31 @@ const formatYear = (date) => {
 
 .browse-button {
   padding: 0.85rem 2rem;
-  background-color: #4caf50;
+  background: var(--accent-strong);
   color: white;
-  border-radius: 6px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
   font-size: 1rem;
-  transition: background-color 0.2s;
+  transition: filter 0.2s;
 }
 
 .browse-button:hover {
-  background-color: #66bb6a;
+  filter: brightness(1.15);
 }
 
 .movie-card {
   display: flex;
   gap: 1.5rem;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 1.25rem;
   margin-bottom: 1rem;
   transition: background-color 0.2s;
 }
 
 .movie-card:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--surface-hover);
 }
 
 .movie-poster {
@@ -183,8 +185,8 @@ const formatYear = (date) => {
 }
 
 .genre-tag {
-  background-color: rgba(138, 180, 248, 0.15);
-  color: #8ab4f8;
+  background-color: var(--accent-soft);
+  color: var(--accent);
   padding: 0.2rem 0.6rem;
   border-radius: 20px;
   font-size: 0.75rem;

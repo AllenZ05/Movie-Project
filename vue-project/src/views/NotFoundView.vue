@@ -26,8 +26,8 @@ main {
 h1 {
   font-size: 6rem;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.15);
   line-height: 1;
+  color: rgba(255, 255, 255, 0.15);
 }
 
 p {
@@ -38,15 +38,15 @@ p {
 button {
   margin-top: 1rem;
   padding: 0.75rem 2rem;
-  background-color: #8ab4f8;
-  color: #1a1a2e;
-  border-radius: 6px;
+  background: var(--accent-strong);
+  color: white;
+  border-radius: var(--radius-sm);
   font-size: 1rem;
   font-weight: 600;
-  transition: background-color 0.2s;
+  transition: filter 0.2s;
 }
 
 button:hover {
-  background-color: #aecbfa;
+  filter: brightness(1.15);
 }
 </style>

@@ -171,9 +171,11 @@ main {
 }
 
 .login-card {
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
+  background: rgba(10, 10, 25, 0.78);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   padding: 2.5rem 2rem;
   width: 100%;
   max-width: 420px;
@@ -183,14 +185,17 @@ main {
 .brand {
   color: white;
   font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   margin-bottom: 1.5rem;
 }
 
 .error-banner {
-  background-color: #ff5555;
-  color: white;
+  background-color: var(--danger-soft);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: var(--danger);
   padding: 0.75rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   margin-bottom: 1rem;
   font-size: 0.9rem;
 }
@@ -198,16 +203,16 @@ main {
 #auth-button {
   width: 100%;
   padding: 0.85rem;
-  border-radius: 6px;
-  background-color: #4285f4;
-  color: white;
+  border-radius: var(--radius-sm);
+  background-color: white;
+  color: #1f1f1f;
   font-size: 1rem;
   font-weight: 600;
   transition: background-color 0.2s;
 }
 
 #auth-button:hover:not(:disabled) {
-  background-color: #3367d6;
+  background-color: #e8eaf2;
 }
 
 #auth-button:disabled {
@@ -242,7 +247,7 @@ main {
 }
 
 .toggle-mode span {
-  color: #8ab4f8;
+  color: var(--accent);
   cursor: pointer;
   font-weight: 600;
 }
@@ -262,7 +267,7 @@ main {
 .auth-form input[type="password"] {
   width: 100%;
   padding: 0.85rem 1rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.15);
   background-color: rgba(255, 255, 255, 0.1);
   color: white;
@@ -276,22 +281,22 @@ main {
 
 .auth-form input:focus {
   outline: none;
-  border-color: #4285f4;
+  border-color: var(--accent);
 }
 
 .auth-form button {
   padding: 0.85rem;
-  border-radius: 6px;
-  background-color: #007bff;
+  border-radius: var(--radius-sm);
+  background: var(--accent-strong);
   color: white;
   font-size: 1rem;
   font-weight: 600;
-  transition: background-color 0.2s;
+  transition: filter 0.2s;
   margin-top: 0.25rem;
 }
 
 .auth-form button:hover:not(:disabled) {
-  background-color: #0056b3;
+  filter: brightness(1.15);
 }
 
 .auth-form button:disabled {

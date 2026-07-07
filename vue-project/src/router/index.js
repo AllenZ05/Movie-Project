@@ -1,10 +1,11 @@
 import { createRouter, createWebHistory } from "vue-router";
 import HomeView from "../views/HomeView.vue";
-import LoginView from "../views/LoginView.vue";
-import PurchaseView from "../views/PurchaseView.vue";
-import CartView from "../views/CartView.vue";
-import NotFoundView from "../views/NotFoundView.vue";
 import { useStore } from "../store";
+
+const LoginView = () => import("../views/LoginView.vue");
+const PurchaseView = () => import("../views/PurchaseView.vue");
+const CartView = () => import("../views/CartView.vue");
+const NotFoundView = () => import("../views/NotFoundView.vue");
 
 export const router = createRouter({
   history: createWebHistory(),

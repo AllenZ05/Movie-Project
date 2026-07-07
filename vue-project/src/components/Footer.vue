@@ -9,27 +9,28 @@
 
 <style scoped>
 footer {
-  padding: 2rem;
-  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+  padding: 1.75rem 2rem;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 a {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
   font-weight: 500;
   transition: color 0.2s;
 }
 
 a:hover {
-  color: #8ab4f8;
+  color: var(--accent);
 }
 
 @media screen and (max-width: 768px) {
   footer {
-    padding: 1.5rem;
+    padding: 1.5rem 1.25rem;
   }
 }
 </style>

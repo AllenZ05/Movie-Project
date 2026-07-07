@@ -137,20 +137,26 @@ onMounted(() => {
 
     <!-- Movies Grid -->
     <div v-else-if="movies?.results?.length" class="tiles">
-      <div v-for="movie in movies.results" :key="movie.id" class="tile">
+      <div v-for="movie in movies.results" :key="movie.id" class="tile" @click="toggleModal(movie.id)">
         <img
           v-if="movie.poster_path"
           :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
-          @click="toggleModal(movie.id)"
           :alt="movie.title"
           loading="lazy"
         />
-        <div v-else class="poster-placeholder" @click="toggleModal(movie.id)">
+        <div v-else class="poster-placeholder">
           <div class="poster-placeholder-content">
             <div class="movie-title">{{ movie.title }}</div>
             <div class="release-date" v-if="movie.release_date">
               {{ new Date(movie.release_date).getFullYear() }}
             </div>
+          </div>
+        </div>
+        <span v-if="movie.vote_average" class="tile-rating">&#9733; {{ movie.vote_average.toFixed(1) }}</span>
+        <div class="tile-overlay">
+          <div class="tile-title">{{ movie.title }}</div>
+          <div class="tile-year" v-if="movie.release_date">
+            {{ new Date(movie.release_date).getFullYear() }}
           </div>
         </div>
       </div>
@@ -172,12 +178,12 @@ onMounted(() => {
 
 /* === Header === */
 .header {
-  background: rgba(15, 15, 35, 0.95);
-  backdrop-filter: blur(10px);
+  background: rgba(13, 13, 31, 0.9);
+  backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
   z-index: 5;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .nav-bar {
@@ -188,9 +194,10 @@ onMounted(() => {
 }
 
 .website-title {
+  color: white;
   font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 .nav-actions {
@@ -222,7 +229,7 @@ onMounted(() => {
   position: absolute;
   top: -5px;
   right: -5px;
-  background-color: #ff5555;
+  background-color: var(--accent-strong);
   color: white;
   font-size: 0.65rem;
   font-weight: bold;
@@ -277,21 +284,21 @@ onMounted(() => {
 
 .search-group input:focus {
   outline: none;
-  border-color: #8ab4f8;
+  border-color: var(--accent);
 }
 
 .search-btn {
   padding: 0.55rem 1rem;
   border-radius: 0 6px 6px 0;
-  background: #8ab4f8;
-  color: #1a1a2e;
+  background: var(--accent-strong);
+  color: white;
   font-weight: 600;
   font-size: 0.85rem;
-  transition: background-color 0.2s;
+  transition: filter 0.2s;
 }
 
 .search-btn:hover:not(:disabled) {
-  background: #aecbfa;
+  filter: brightness(1.15);
 }
 
 .search-btn:disabled {
@@ -311,11 +318,11 @@ onMounted(() => {
 
 .filter-group select:focus {
   outline: none;
-  border-color: #8ab4f8;
+  border-color: var(--accent);
 }
 
 .filter-group select option {
-  background: #1a1a2e;
+  background: var(--bg-elevated);
   color: white;
 }
 
@@ -363,32 +370,75 @@ onMounted(() => {
   padding: 1rem 1.5rem;
 }
 
-.tile img {
-  width: 100%;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+.tile {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
-.tile img:hover {
+.tile:hover {
   transform: scale(1.04);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.tile img {
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+}
+
+.tile-rating {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  color: #fbbf24;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+}
+
+.tile-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0.85rem;
+  background: linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.85) 100%);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.tile:hover .tile-overlay {
+  opacity: 1;
+}
+
+.tile-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.tile-year {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 0.15rem;
 }
 
 .poster-placeholder {
   aspect-ratio: 2/3;
   width: 100%;
   background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
-  border-radius: 8px;
-  cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: transform 0.2s;
-}
-
-.poster-placeholder:hover {
-  transform: scale(1.04);
 }
 
 .poster-placeholder-content {

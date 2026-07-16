@@ -9,6 +9,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 
 const store = useStore();
@@ -21,16 +22,6 @@ const passwordLogin = ref("");
 const isLoading = ref(false);
 const errorMessage = ref("");
 const isLoginMode = ref(true);
-
-const waitForAuth = () => {
-  return new Promise((resolve) => {
-    const check = () => {
-      if (store.user) return resolve();
-      setTimeout(check, 50);
-    };
-    check();
-  });
-};
 
 const registerViaEmail = async () => {
   errorMessage.value = "";
@@ -47,7 +38,7 @@ const registerViaEmail = async () => {
   try {
     const { user } = await createUserWithEmailAndPassword(auth, emailRegister.value, passwordRegister.value);
     await setDoc(doc(firestore, "carts", user.email), { cart: [] });
-    await waitForAuth();
+    store.user = user;
     router.push("/purchase");
   } catch (error) {
     errorMessage.value =
@@ -65,8 +56,8 @@ const loginViaEmail = async () => {
   errorMessage.value = "";
   isLoading.value = true;
   try {
-    await signInWithEmailAndPassword(auth, emailLogin.value, passwordLogin.value);
-    await waitForAuth();
+    const { user } = await signInWithEmailAndPassword(auth, emailLogin.value, passwordLogin.value);
+    store.user = user;
     router.push("/purchase");
   } catch (error) {
     errorMessage.value =
@@ -80,12 +71,29 @@ const loginViaEmail = async () => {
   }
 };
 
+const forgotPassword = async () => {
+  errorMessage.value = "";
+  if (!emailLogin.value) {
+    errorMessage.value = "Enter your email above first, then click \"Forgot password?\"";
+    return;
+  }
+  try {
+    await sendPasswordResetEmail(auth, emailLogin.value);
+    store.addToast("Password reset email sent — check your inbox.");
+  } catch (error) {
+    errorMessage.value =
+      error.code === "auth/invalid-email"
+        ? "Please enter a valid email address."
+        : "Couldn't send the reset email. Please try again.";
+  }
+};
+
 const registerViaGoogle = async () => {
   errorMessage.value = "";
   isLoading.value = true;
   try {
-    await signInWithPopup(auth, new GoogleAuthProvider());
-    await waitForAuth();
+    const { user } = await signInWithPopup(auth, new GoogleAuthProvider());
+    store.user = user;
     router.push("/purchase");
   } catch (error) {
     if (error.code !== "auth/popup-closed-by-user") {
@@ -122,6 +130,9 @@ const registerViaGoogle = async () => {
         />
         <button type="submit" :disabled="isLoading">
           {{ isLoading ? "Logging in..." : "Login" }}
+        </button>
+        <button type="button" class="forgot-link" @click="forgotPassword" :disabled="isLoading">
+          Forgot password?
         </button>
       </form>
 
@@ -302,6 +313,20 @@ main {
 .auth-form button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.auth-form .forgot-link {
+  background: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.25rem;
+  margin-top: 0;
+}
+
+.auth-form .forgot-link:hover:not(:disabled) {
+  color: var(--accent);
+  filter: none;
 }
 
 @media only screen and (max-width: 480px) {

@@ -1,5 +1,6 @@
 <script setup>
 import { useStore } from "./store";
+import Toasts from "./components/Toasts.vue";
 
 const store = useStore();
 store.initAuth();
@@ -9,7 +10,12 @@ store.initAuth();
   <div v-if="!store.authReady" class="app-loading">
     <div class="spinner"></div>
   </div>
-  <RouterView v-else />
+  <RouterView v-else v-slot="{ Component }">
+    <Transition name="fade" mode="out-in">
+      <component :is="Component" />
+    </Transition>
+  </RouterView>
+  <Toasts />
 </template>
 
 <style scoped>
@@ -33,5 +39,15 @@ store.initAuth();
   to {
     transform: rotate(360deg);
   }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

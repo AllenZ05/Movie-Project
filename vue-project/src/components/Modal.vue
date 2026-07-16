@@ -11,6 +11,7 @@ const emit = defineEmits(["toggleModal"]);
 const movie = ref(null);
 const addedToCart = ref(false);
 const isLoadingDetails = ref(true);
+const closeBtn = ref(null);
 
 // Lock body scroll while modal is open (including touch devices)
 const scrollY = window.scrollY;
@@ -18,7 +19,14 @@ document.body.style.position = "fixed";
 document.body.style.top = `-${scrollY}px`;
 document.body.style.left = "0";
 document.body.style.right = "0";
+
+const onKeydown = (event) => {
+  if (event.key === "Escape") emit("toggleModal");
+};
+document.addEventListener("keydown", onKeydown);
+
 onUnmounted(() => {
+  document.removeEventListener("keydown", onKeydown);
   document.body.style.position = "";
   document.body.style.top = "";
   document.body.style.left = "";
@@ -42,7 +50,7 @@ const formattedReleaseDate = computed(() => formatDate(movie.value?.release_date
 const handleAddToCart = async () => {
   if (!movie.value) return;
   const m = movie.value;
-  const added = await store.addToCart({
+  const result = await store.addToCart({
     id: m.id,
     title: m.title,
     poster: m.poster_path,
@@ -52,13 +60,17 @@ const handleAddToCart = async () => {
     runtime: m.runtime,
     genres: m.genres?.map((g) => g.name) || [],
   });
-  addedToCart.value = true;
-  if (!added) {
+  if (result === "added") {
+    addedToCart.value = true;
+    store.addToast(`Added "${m.title}" to your cart`);
+  } else if (result === "duplicate") {
     addedToCart.value = "duplicate";
   }
+  // On "error" the store shows a toast and the button stays active for retry
 };
 
 onMounted(async () => {
+  closeBtn.value?.focus();
   try {
     const response = await axios.get(`https://api.themoviedb.org/3/movie/${props.id}`, {
       params: {
@@ -108,11 +120,21 @@ onMounted(async () => {
 <template>
   <Teleport to="body">
     <div id="outer-container" @click.self="emit('toggleModal')">
-      <div id="inner-container">
-        <button class="close-btn" @click="emit('toggleModal')" aria-label="Close"></button>
+      <div id="inner-container" role="dialog" aria-modal="true" :aria-label="movie?.title || 'Movie details'">
+        <button ref="closeBtn" class="close-btn" @click="emit('toggleModal')" aria-label="Close"></button>
 
         <div class="modal-body">
-          <div v-if="isLoadingDetails" class="modal-loading">Loading movie details...</div>
+          <div v-if="isLoadingDetails" class="modal-skeleton">
+            <div class="skeleton-poster shimmer"></div>
+            <div class="skeleton-info">
+              <div class="skeleton-line lg shimmer"></div>
+              <div class="skeleton-line shimmer"></div>
+              <div class="skeleton-line shimmer"></div>
+              <div class="skeleton-line shimmer"></div>
+              <div class="skeleton-line sm shimmer"></div>
+              <div class="skeleton-line sm shimmer"></div>
+            </div>
+          </div>
 
           <div v-else-if="movie" id="MovieInfo">
             <div id="left-side">
@@ -266,6 +288,63 @@ onMounted(async () => {
   font-size: 1.1rem;
 }
 
+.modal-skeleton {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.skeleton-poster {
+  flex: 1;
+  aspect-ratio: 2/3;
+  border-radius: 8px;
+}
+
+.skeleton-info {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.skeleton-line {
+  height: 1rem;
+  border-radius: 4px;
+}
+
+.skeleton-line.lg {
+  height: 2.2rem;
+  width: 70%;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-line.sm {
+  width: 45%;
+}
+
+.shimmer {
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%),
+    rgba(255, 255, 255, 0.04);
+  background-size:
+    200% 100%,
+    100% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position:
+      200% 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      -200% 0,
+      0 0;
+  }
+}
+
 #MovieInfo {
   display: flex;
   flex-direction: row;
@@ -404,6 +483,22 @@ h2 {
 @media screen and (max-width: 1024px) {
   #MovieInfo {
     flex-direction: column;
+  }
+
+  .modal-skeleton {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .skeleton-poster {
+    flex: none;
+    width: 60%;
+    max-width: 260px;
+  }
+
+  .skeleton-info {
+    flex: none;
+    width: 100%;
   }
 
   #right-side {

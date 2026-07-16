@@ -3,6 +3,7 @@ import axios from "axios";
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import Modal from "../components/Modal.vue";
+import UserMenu from "../components/UserMenu.vue";
 import { useStore } from "../store";
 
 const store = useStore();
@@ -10,12 +11,31 @@ const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const router = useRouter();
 
-const logout = () => {
-  store.logout();
-  router.push("/");
-};
+const genres = [
+  { id: "", name: "All" },
+  { id: 28, name: "Action" },
+  { id: 12, name: "Adventure" },
+  { id: 16, name: "Animation" },
+  { id: 35, name: "Comedy" },
+  { id: 80, name: "Crime" },
+  { id: 99, name: "Documentary" },
+  { id: 18, name: "Drama" },
+  { id: 10751, name: "Family" },
+  { id: 14, name: "Fantasy" },
+  { id: 36, name: "History" },
+  { id: 27, name: "Horror" },
+  { id: 10402, name: "Music" },
+  { id: 9648, name: "Mystery" },
+  { id: 10749, name: "Romance" },
+  { id: 878, name: "Sci-Fi" },
+  { id: 53, name: "Thriller" },
+  { id: 10770, name: "TV Movie" },
+  { id: 10752, name: "War" },
+  { id: 37, name: "Western" },
+];
 
-const genre = ref(28);
+const genre = ref("");
+const sortBy = ref("popularity.desc");
 const search = ref("");
 const movies = ref(null);
 const page = ref(1);
@@ -26,14 +46,25 @@ const selectedMovieId = ref(null);
 const isLoading = ref(false);
 const error = ref(null);
 
+// Sort/genre params only apply to discover; search ignores them
 const currentParams = computed(() => ({
   api_key: TMDB_API_KEY,
   region: "US",
   language: "en",
   include_adult: false,
   page: page.value,
-  ...(genre.value && { with_genres: genre.value }),
-  ...(search.value && { query: search.value }),
+  ...(search.value
+    ? { query: search.value }
+    : {
+        sort_by: sortBy.value,
+        ...(genre.value && { with_genres: genre.value }),
+        // Vote-count floors keep obscure/unrated entries from dominating these sorts
+        ...(sortBy.value === "vote_average.desc" && { "vote_count.gte": 200 }),
+        ...(sortBy.value === "primary_release_date.desc" && {
+          "primary_release_date.lte": new Date().toISOString().slice(0, 10),
+          "vote_count.gte": 10,
+        }),
+      }),
 }));
 
 const getMovies = async () => {
@@ -56,13 +87,27 @@ const getMovies = async () => {
   }
 };
 
+let searchTimer;
+
 const newSearch = () => {
+  clearTimeout(searchTimer);
   page.value = 1;
   getMovies();
 };
 
-// The search endpoint ignores genre, so picking a genre exits search mode
-const onGenreChange = () => {
+const queueSearch = () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(newSearch, 450);
+};
+
+// The search endpoint ignores genre/sort, so changing them exits search mode
+const selectGenre = (id) => {
+  genre.value = id;
+  search.value = "";
+  newSearch();
+};
+
+const onSortChange = () => {
   search.value = "";
   newSearch();
 };
@@ -93,37 +138,27 @@ onMounted(() => {
             Cart
             <span v-if="store.cartCount" class="cart-badge">{{ store.cartCount }}</span>
           </button>
-          <button class="logout-button" @click="logout">Logout</button>
+          <UserMenu />
         </div>
       </div>
       <div class="toolbar">
         <div class="search-group">
-          <input type="search" placeholder="Search movies..." v-model="search" @keyup.enter="newSearch" />
+          <input
+            type="search"
+            placeholder="Search movies..."
+            v-model="search"
+            @input="queueSearch"
+            @keyup.enter="newSearch"
+          />
           <button class="search-btn" @click="newSearch" :disabled="isLoading">
             {{ isLoading ? "..." : "Search" }}
           </button>
         </div>
         <div class="filter-group">
-          <select v-model="genre" @change="onGenreChange">
-            <option value="28">Action</option>
-            <option value="10751">Family</option>
-            <option value="878">Sci-Fi</option>
-            <option value="12">Adventure</option>
-            <option value="14">Fantasy</option>
-            <option value="10770">TV Movie</option>
-            <option value="16">Animation</option>
-            <option value="36">History</option>
-            <option value="53">Thriller</option>
-            <option value="35">Comedy</option>
-            <option value="27">Horror</option>
-            <option value="10752">War</option>
-            <option value="80">Crime</option>
-            <option value="10402">Music</option>
-            <option value="37">Western</option>
-            <option value="99">Documentary</option>
-            <option value="9648">Mystery</option>
-            <option value="18">Drama</option>
-            <option value="10749">Romance</option>
+          <select v-model="sortBy" @change="onSortChange" aria-label="Sort by">
+            <option value="popularity.desc">Most Popular</option>
+            <option value="vote_average.desc">Top Rated</option>
+            <option value="primary_release_date.desc">Newest</option>
           </select>
         </div>
         <div class="pagination">
@@ -131,6 +166,17 @@ onMounted(() => {
           <span>{{ page }} / {{ totalPages }}</span>
           <button @click="navigate(1)" :disabled="page >= totalPages || isLoading">&rsaquo;</button>
         </div>
+      </div>
+      <div class="genre-row">
+        <button
+          v-for="g in genres"
+          :key="g.id"
+          class="chip"
+          :class="{ active: genre === g.id }"
+          @click="selectGenre(g.id)"
+        >
+          {{ g.name }}
+        </button>
       </div>
     </header>
 
@@ -149,7 +195,17 @@ onMounted(() => {
 
     <!-- Movies Grid -->
     <div v-else-if="movies?.results?.length" class="tiles">
-      <div v-for="movie in movies.results" :key="movie.id" class="tile" @click="toggleModal(movie.id)">
+      <div
+        v-for="movie in movies.results"
+        :key="movie.id"
+        class="tile"
+        role="button"
+        tabindex="0"
+        :aria-label="movie.title"
+        @click="toggleModal(movie.id)"
+        @keydown.enter="toggleModal(movie.id)"
+        @keydown.space.prevent="toggleModal(movie.id)"
+      >
         <img
           v-if="movie.poster_path"
           :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
@@ -218,17 +274,13 @@ onMounted(() => {
   align-items: center;
 }
 
-.cart-button,
-.logout-button {
+.cart-button {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 500;
   color: white;
   transition: background-color 0.2s;
-}
-
-.cart-button {
   background-color: rgba(255, 255, 255, 0.1);
   position: relative;
 }
@@ -251,16 +303,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.logout-button {
-  background-color: transparent;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.logout-button:hover {
-  color: #ff6b6b;
-  background-color: rgba(255, 107, 107, 0.1);
 }
 
 /* === Toolbar === */
@@ -372,6 +414,42 @@ onMounted(() => {
 .pagination button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* === Genre Chips === */
+.genre-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 1.5rem 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.genre-row::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex-shrink: 0;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.chip:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+}
+
+.chip.active {
+  background: var(--accent-strong);
+  color: white;
 }
 
 /* === Movie Grid === */
@@ -578,6 +656,10 @@ onMounted(() => {
   .toolbar {
     padding: 0.5rem 1rem 0.6rem;
     gap: 0.5rem;
+  }
+
+  .genre-row {
+    padding: 0 1rem 0.6rem;
   }
 
   .search-group {

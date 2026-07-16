@@ -1,14 +1,12 @@
-# vue-project
+# 123A-Movies
 
-This template should help get you started developing with Vue 3 in Vite.
+A movie discovery web app. Browse, search, and filter movies from [TMDB](https://www.themoviedb.org/), watch trailers, and save titles to a cart that syncs to your account.
 
-## Recommended IDE Setup
+## Tech Stack
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vitejs.dev/config/).
+- **Frontend:** Vue 3 (Composition API) + Vite, Pinia, Vue Router
+- **Backend:** Firebase — Auth (email/password + Google), Cloud Firestore, Hosting
+- **Data:** TMDB API via axios
 
 ## Project Setup
 
@@ -16,14 +14,35 @@ See [Vite Configuration Reference](https://vitejs.dev/config/).
 npm install
 ```
 
-### Compile and Hot-Reload for Development
+Create a `.env` file in the project root:
+
+```
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+VITE_TMDB_API_KEY=...
+```
+
+### Development
 
 ```sh
 npm run dev
 ```
 
-### Compile and Minify for Production
+### Production Build
 
 ```sh
 npm run build
 ```
+
+### Deploy
+
+```sh
+npm run build
+npx firebase-tools deploy
+```
+
+Deploys hosting (from `dist/`) and Firestore rules/indexes, per `firebase.json`.

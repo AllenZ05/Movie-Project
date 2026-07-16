@@ -1,6 +1,7 @@
 <script setup>
 import { useStore } from "../store/index.js";
 import { useRouter } from "vue-router";
+import UserMenu from "../components/UserMenu.vue";
 
 const router = useRouter();
 const store = useStore();
@@ -14,7 +15,10 @@ const formatYear = (date) => {
 <template>
   <div id="container">
     <div class="cart-header">
-      <button class="back-button" @click="router.push('/purchase')">&larr; Back to Movies</button>
+      <div class="cart-nav">
+        <button class="back-button" @click="router.push('/purchase')">&larr; Back to Movies</button>
+        <UserMenu />
+      </div>
       <h1>
         Your Cart <span v-if="store.cartCount">({{ store.cartCount }})</span>
       </h1>
@@ -71,6 +75,12 @@ const formatYear = (date) => {
 
 .cart-header {
   margin-bottom: 2rem;
+}
+
+.cart-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .cart-header h1 {

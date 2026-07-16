@@ -3,11 +3,14 @@ import { auth, firestore } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { setDoc, updateDoc, getDoc, doc } from "firebase/firestore";
 
+let nextToastId = 1;
+
 export const useStore = defineStore("store", {
   state: () => ({
     user: null,
     cart: [],
     authReady: false,
+    toasts: [],
   }),
   getters: {
     cartCount: (state) => state.cart.length,
@@ -38,20 +41,39 @@ export const useStore = defineStore("store", {
     },
     async addToCart(movieData) {
       const alreadyInCart = this.cart.some((item) => item.id === movieData.id);
-      if (alreadyInCart) return false;
+      if (alreadyInCart) return "duplicate";
 
       this.cart.push(movieData);
-      await setDoc(doc(firestore, "carts", this.user.email), { cart: this.cart });
-      return true;
+      try {
+        await setDoc(doc(firestore, "carts", this.user.email), { cart: this.cart });
+        return "added";
+      } catch (e) {
+        this.cart.pop();
+        this.addToast("Couldn't save to your cart. Please try again.", "error");
+        return "error";
+      }
     },
     async removeFromCart(index) {
-      this.cart.splice(index, 1);
-      await updateDoc(doc(firestore, "carts", this.user.email), { cart: this.cart });
+      const [removed] = this.cart.splice(index, 1);
+      try {
+        await updateDoc(doc(firestore, "carts", this.user.email), { cart: this.cart });
+      } catch (e) {
+        this.cart.splice(index, 0, removed);
+        this.addToast("Couldn't update your cart. Please try again.", "error");
+      }
     },
     logout() {
       auth.signOut();
       this.user = null;
       this.cart = [];
+    },
+    addToast(message, type = "success") {
+      const id = nextToastId++;
+      this.toasts.push({ id, message, type });
+      setTimeout(() => this.dismissToast(id), 4000);
+    },
+    dismissToast(id) {
+      this.toasts = this.toasts.filter((toast) => toast.id !== id);
     },
   },
 });

@@ -43,7 +43,7 @@ const registerViaEmail = async () => {
   isLoading.value = true;
   try {
     const { user } = await createUserWithEmailAndPassword(auth, emailRegister.value, passwordRegister.value);
-    await setDoc(doc(firestore, "carts", user.email), { cart: [] });
+    await setDoc(doc(firestore, "watchlists", user.email), { movies: [] });
     store.user = user;
     goAfterAuth();
   } catch (error) {

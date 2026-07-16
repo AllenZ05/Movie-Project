@@ -37,7 +37,42 @@ const genres = [
 
 const genre = ref("");
 const sortBy = ref("popularity.desc");
+const era = ref("");
 const search = ref("");
+
+// Date-window params for the era filter; spread after the sort presets so
+// they override overlapping date/vote-count keys
+const eraParams = () => {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const year = now.getFullYear();
+  const daysFromNow = (days) => new Date(now.getTime() + days * 86400000).toISOString().slice(0, 10);
+
+  switch (era.value) {
+    case "":
+      return {};
+    case "now_playing":
+      // Theatrical releases from the last ~6 weeks
+      return { with_release_type: "2|3", "release_date.gte": daysFromNow(-45), "release_date.lte": today };
+    case "upcoming":
+      // Unreleased movies have few votes, so drop the sort presets' floors
+      return {
+        "primary_release_date.gte": daysFromNow(1),
+        "primary_release_date.lte": daysFromNow(365),
+        "vote_count.gte": 0,
+      };
+    case "this_year":
+      return { "primary_release_date.gte": `${year}-01-01`, "primary_release_date.lte": today };
+    case "last_5":
+      return { "primary_release_date.gte": `${year - 5}-01-01`, "primary_release_date.lte": today };
+    case "older":
+      return { "primary_release_date.lte": "1979-12-31" };
+    default: {
+      const start = parseInt(era.value, 10);
+      return { "primary_release_date.gte": `${start}-01-01`, "primary_release_date.lte": `${start + 9}-12-31` };
+    }
+  }
+};
 const movies = ref(null);
 const page = ref(1);
 const totalPages = ref(0);
@@ -75,6 +110,7 @@ const currentParams = computed(() => ({
           "primary_release_date.lte": new Date().toISOString().slice(0, 10),
           "vote_count.gte": 10,
         }),
+        ...eraParams(),
       }),
 }));
 
@@ -111,14 +147,14 @@ const queueSearch = () => {
   searchTimer = setTimeout(newSearch, 450);
 };
 
-// The search endpoint ignores genre/sort, so changing them exits search mode
+// The search endpoint ignores genre/sort/era, so changing them exits search mode
 const selectGenre = (id) => {
   genre.value = id;
   search.value = "";
   newSearch();
 };
 
-const onSortChange = () => {
+const onFilterChange = () => {
   search.value = "";
   newSearch();
 };
@@ -140,9 +176,9 @@ onMounted(() => {
       <div class="nav-bar">
         <h1 class="website-title">123A-Movies</h1>
         <div class="nav-actions">
-          <button class="cart-button" @click="router.push('/cart')">
-            Cart
-            <span v-if="store.cartCount" class="cart-badge">{{ store.cartCount }}</span>
+          <button class="watchlist-button" @click="router.push('/watchlist')">
+            Watchlist
+            <span v-if="store.watchlistCount" class="count-badge">{{ store.watchlistCount }}</span>
           </button>
           <UserMenu />
         </div>
@@ -161,10 +197,23 @@ onMounted(() => {
           </button>
         </div>
         <div class="filter-group">
-          <select v-model="sortBy" @change="onSortChange" aria-label="Sort by">
+          <select v-model="sortBy" @change="onFilterChange" aria-label="Sort by">
             <option value="popularity.desc">Most Popular</option>
             <option value="vote_average.desc">Top Rated</option>
             <option value="primary_release_date.desc">Newest</option>
+          </select>
+          <select v-model="era" @change="onFilterChange" aria-label="Filter by release date">
+            <option value="">Any Year</option>
+            <option value="now_playing">Now Playing</option>
+            <option value="upcoming">Coming Soon</option>
+            <option value="this_year">This Year</option>
+            <option value="last_5">Last 5 Years</option>
+            <option value="2020s">2020s</option>
+            <option value="2010s">2010s</option>
+            <option value="2000s">2000s</option>
+            <option value="1990s">1990s</option>
+            <option value="1980s">1980s</option>
+            <option value="older">Before 1980</option>
           </select>
         </div>
         <div class="pagination">
@@ -280,7 +329,7 @@ onMounted(() => {
   align-items: center;
 }
 
-.cart-button {
+.watchlist-button {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-size: 0.85rem;
@@ -291,11 +340,11 @@ onMounted(() => {
   position: relative;
 }
 
-.cart-button:hover {
+.watchlist-button:hover {
   background-color: rgba(255, 255, 255, 0.18);
 }
 
-.cart-badge {
+.count-badge {
   position: absolute;
   top: -5px;
   right: -5px;
@@ -364,6 +413,11 @@ onMounted(() => {
 .search-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.filter-group {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .filter-group select {
@@ -678,7 +732,8 @@ onMounted(() => {
   }
 
   .filter-group select {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
   }
 }
 </style>

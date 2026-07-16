@@ -1,7 +1,6 @@
 <script setup>
 import axios from "axios";
 import { useStore } from "../store";
-import { priceFor, formatPrice } from "../pricing";
 import { ref, onMounted, computed } from "vue";
 
 import { onUnmounted } from "vue";
@@ -10,7 +9,7 @@ const store = useStore();
 const props = defineProps(["id"]);
 const emit = defineEmits(["toggleModal"]);
 const movie = ref(null);
-const addedToCart = ref(false);
+const saved = ref(false);
 const isLoadingDetails = ref(true);
 const closeBtn = ref(null);
 
@@ -48,12 +47,10 @@ const formatDate = (date) => {
 
 const formattedReleaseDate = computed(() => formatDate(movie.value?.release_date));
 
-const price = computed(() => (movie.value ? formatPrice(priceFor(movie.value.release_date)) : ""));
-
-const handleAddToCart = async () => {
+const handleAddToWatchlist = async () => {
   if (!movie.value) return;
   const m = movie.value;
-  const result = await store.addToCart({
+  const result = await store.addToWatchlist({
     id: m.id,
     title: m.title,
     poster: m.poster_path,
@@ -64,10 +61,10 @@ const handleAddToCart = async () => {
     genres: m.genres?.map((g) => g.name) || [],
   });
   if (result === "added") {
-    addedToCart.value = true;
-    store.addToast(`Added "${m.title}" to your cart`);
+    saved.value = true;
+    store.addToast(`Added "${m.title}" to your watchlist`);
   } else if (result === "duplicate") {
-    addedToCart.value = "duplicate";
+    saved.value = "duplicate";
   }
   // On "error" the store shows a toast and the button stays active for retry
 };
@@ -172,18 +169,12 @@ onMounted(async () => {
               </div>
               <div class="bottom-actions">
                 <button
-                  id="BuyButton"
-                  @click="handleAddToCart"
-                  :disabled="addedToCart !== false"
-                  :class="{ added: addedToCart === true, duplicate: addedToCart === 'duplicate' }"
+                  id="AddButton"
+                  @click="handleAddToWatchlist"
+                  :disabled="saved !== false"
+                  :class="{ added: saved === true, duplicate: saved === 'duplicate' }"
                 >
-                  {{
-                    addedToCart === "duplicate"
-                      ? "Already in Cart"
-                      : addedToCart
-                        ? "Added to Cart!"
-                        : "Add to Cart — " + price
-                  }}
+                  {{ saved === "duplicate" ? "In Watchlist" : saved ? "Added to Watchlist!" : "Add to Watchlist" }}
                 </button>
                 <button class="close-bottom-btn" @click="emit('toggleModal')">Close</button>
               </div>
@@ -416,7 +407,7 @@ h2 {
   flex-wrap: wrap;
 }
 
-#BuyButton {
+#AddButton {
   padding: 1rem 2rem;
   max-width: 15rem;
   background: var(--accent-strong);
@@ -443,23 +434,23 @@ h2 {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-#BuyButton:hover:not(:disabled) {
+#AddButton:hover:not(:disabled) {
   filter: brightness(1.15);
 }
 
-#BuyButton:active:not(:disabled) {
+#AddButton:active:not(:disabled) {
   transform: scale(0.95);
 }
 
-#BuyButton:disabled {
+#AddButton:disabled {
   cursor: default;
 }
 
-#BuyButton.added {
+#AddButton.added {
   background: #17945f;
 }
 
-#BuyButton.duplicate {
+#AddButton.duplicate {
   background: #565669;
 }
 
@@ -537,7 +528,7 @@ h2 {
     font-size: 0.9rem;
   }
 
-  #BuyButton {
+  #AddButton {
     padding: 0.75rem 1.5rem;
     font-size: 0.9rem;
   }

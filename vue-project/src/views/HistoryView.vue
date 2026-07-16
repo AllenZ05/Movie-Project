@@ -5,11 +5,10 @@ import { doc, getDoc } from "firebase/firestore";
 import { firestore } from "../firebase";
 import { useStore } from "../store";
 import UserMenu from "../components/UserMenu.vue";
-import { formatPrice } from "../pricing";
 
 const router = useRouter();
 const store = useStore();
-const orders = ref(null);
+const watched = ref(null);
 const loadFailed = ref(false);
 
 const formatDate = (iso) =>
@@ -17,48 +16,44 @@ const formatDate = (iso) =>
 
 onMounted(async () => {
   try {
-    const snapshot = await getDoc(doc(firestore, "orders", store.user.email));
-    orders.value = snapshot.exists() ? [...snapshot.data().orders].reverse() : [];
+    const snapshot = await getDoc(doc(firestore, "watchHistory", store.user.email));
+    watched.value = snapshot.exists() ? [...snapshot.data().watched].reverse() : [];
   } catch (e) {
-    console.error("Failed to load orders:", e);
+    console.error("Failed to load watch history:", e);
     loadFailed.value = true;
-    orders.value = [];
+    watched.value = [];
   }
 });
 </script>
 
 <template>
   <div id="container">
-    <div class="orders-header">
-      <div class="orders-nav">
+    <div class="history-header">
+      <div class="history-nav">
         <button class="back-button" @click="router.push('/purchase')">&larr; Back to Movies</button>
         <UserMenu />
       </div>
       <h1>
-        My Orders <span v-if="orders?.length">({{ orders.length }})</span>
+        Watch History <span v-if="watched?.length">({{ watched.length }})</span>
       </h1>
     </div>
 
-    <div v-if="orders === null" class="state-message">Loading your orders...</div>
+    <div v-if="watched === null" class="state-message">Loading your watch history...</div>
 
-    <div v-else-if="loadFailed" class="state-message">Couldn't load your orders. Please try again later.</div>
+    <div v-else-if="loadFailed" class="state-message">Couldn't load your watch history. Please try again later.</div>
 
-    <div v-else-if="orders.length === 0" class="state-message">
-      <p>You haven't placed any orders yet.</p>
+    <div v-else-if="watched.length === 0" class="state-message">
+      <p>You haven't marked any movies as watched yet.</p>
       <button class="browse-button" @click="router.push('/purchase')">Browse Movies</button>
     </div>
 
-    <div v-else class="orders-list">
-      <div v-for="order in orders" :key="order.id" class="order-card">
-        <div class="order-head">
-          <span class="order-date">{{ formatDate(order.date) }}</span>
-          <strong class="order-total">{{ formatPrice(order.total) }}</strong>
-        </div>
-        <div v-for="item in order.items" :key="item.id" class="order-item">
-          <img v-if="item.poster" :src="`https://image.tmdb.org/t/p/w92/${item.poster}`" :alt="item.title" />
-          <div v-else class="thumb-placeholder"></div>
-          <span class="item-title">{{ item.title }}</span>
-          <span class="item-price">{{ formatPrice(item.price) }}</span>
+    <div v-else class="history-list">
+      <div v-for="movie in watched" :key="movie.id + movie.watchedAt" class="history-item">
+        <img v-if="movie.poster" :src="`https://image.tmdb.org/t/p/w92/${movie.poster}`" :alt="movie.title" />
+        <div v-else class="thumb-placeholder"></div>
+        <div class="item-info">
+          <span class="item-title">{{ movie.title }}</span>
+          <span class="item-date">Watched {{ formatDate(movie.watchedAt) }}</span>
         </div>
       </div>
     </div>
@@ -73,21 +68,21 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
-.orders-header {
+.history-header {
   margin-bottom: 2rem;
 }
 
-.orders-header h1 {
+.history-header h1 {
   font-size: 2rem;
   margin-top: 1rem;
 }
 
-.orders-header h1 span {
+.history-header h1 span {
   color: rgba(255, 255, 255, 0.5);
   font-weight: normal;
 }
 
-.orders-nav {
+.history-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -132,43 +127,25 @@ onMounted(async () => {
   filter: brightness(1.15);
 }
 
-.order-card {
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.25rem;
-  margin-bottom: 1rem;
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 0.75rem;
+  transition: background-color 0.2s;
 }
 
-.order-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 0.85rem;
-  margin-bottom: 0.85rem;
-  border-bottom: 1px solid var(--border);
+.history-item:hover {
+  background-color: var(--surface-hover);
 }
 
-.order-date {
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 0.95rem;
-}
-
-.order-total {
-  color: var(--success);
-  font-size: 1.15rem;
-}
-
-.order-item {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 0.4rem 0;
-}
-
-.order-item img,
+.history-item img,
 .thumb-placeholder {
-  width: 40px;
+  width: 48px;
   aspect-ratio: 2/3;
   border-radius: 4px;
   object-fit: cover;
@@ -179,16 +156,22 @@ onMounted(async () => {
   background: linear-gradient(135deg, #34495e, #2c3e50);
 }
 
-.item-title {
-  flex: 1;
+.item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   min-width: 0;
+}
+
+.item-title {
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.item-price {
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 0.9rem;
+.item-date {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
 }
 </style>

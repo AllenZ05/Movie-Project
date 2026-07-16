@@ -4,8 +4,8 @@ import { useStore } from "../store";
 
 const LoginView = () => import("../views/LoginView.vue");
 const PurchaseView = () => import("../views/PurchaseView.vue");
-const CartView = () => import("../views/CartView.vue");
-const OrdersView = () => import("../views/OrdersView.vue");
+const WatchlistView = () => import("../views/WatchlistView.vue");
+const HistoryView = () => import("../views/HistoryView.vue");
 const NotFoundView = () => import("../views/NotFoundView.vue");
 
 export const router = createRouter({
@@ -31,15 +31,18 @@ export const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: "/cart",
-      component: CartView,
+      path: "/watchlist",
+      component: WatchlistView,
       meta: { requiresAuth: true },
     },
     {
-      path: "/orders",
-      component: OrdersView,
+      path: "/history",
+      component: HistoryView,
       meta: { requiresAuth: true },
     },
+    // Old paths from the cart/checkout era
+    { path: "/cart", redirect: "/watchlist" },
+    { path: "/orders", redirect: "/history" },
     {
       path: "/:pathMatch(.*)*",
       component: NotFoundView,

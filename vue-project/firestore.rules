@@ -10,22 +10,22 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.email == email;
     }
 
-    // Cart collection rules
+    // Watchlist rules
     // Note: multiple allow statements are OR'ed, so ownership and data
     // validation must be combined into a single condition
-    match /carts/{userEmail} {
+    match /watchlists/{userEmail} {
       allow read: if isOwner(userEmail);
       allow write: if isOwner(userEmail) &&
-                     request.resource.data.keys().hasOnly(['cart']) &&
-                     request.resource.data.cart is list;
+                     request.resource.data.keys().hasOnly(['movies']) &&
+                     request.resource.data.movies is list;
     }
 
-    // Order history rules
-    match /orders/{userEmail} {
+    // Watch history rules
+    match /watchHistory/{userEmail} {
       allow read: if isOwner(userEmail);
       allow write: if isOwner(userEmail) &&
-                     request.resource.data.keys().hasOnly(['orders']) &&
-                     request.resource.data.orders is list;
+                     request.resource.data.keys().hasOnly(['watched']) &&
+                     request.resource.data.watched is list;
     }
 
     // Block access to all other collections by default

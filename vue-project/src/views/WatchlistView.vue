@@ -1,51 +1,43 @@
 <script setup>
-import { ref, computed } from "vue";
 import { useStore } from "../store/index.js";
 import { useRouter } from "vue-router";
 import UserMenu from "../components/UserMenu.vue";
-import { priceFor, formatPrice } from "../pricing";
 
 const router = useRouter();
 const store = useStore();
-const isCheckingOut = ref(false);
-
-const cartTotal = computed(() => store.cart.reduce((sum, movie) => sum + priceFor(movie.release_date), 0));
 
 const formatYear = (date) => {
   if (!date) return "";
   return new Date(date).getFullYear();
 };
 
-const checkout = async () => {
-  isCheckingOut.value = true;
-  const order = await store.checkout();
-  isCheckingOut.value = false;
-  if (order) {
-    store.addToast("Order placed!");
-    router.push("/orders");
+const markWatched = async (index) => {
+  const movie = await store.markWatched(index);
+  if (movie) {
+    store.addToast(`Marked "${movie.title}" as watched`);
   }
 };
 </script>
 
 <template>
   <div id="container">
-    <div class="cart-header">
-      <div class="cart-nav">
+    <div class="list-header">
+      <div class="list-nav">
         <button class="back-button" @click="router.push('/purchase')">&larr; Back to Movies</button>
         <UserMenu />
       </div>
       <h1>
-        Your Cart <span v-if="store.cartCount">({{ store.cartCount }})</span>
+        My Watchlist <span v-if="store.watchlistCount">({{ store.watchlistCount }})</span>
       </h1>
     </div>
 
-    <div v-if="store.cart.length === 0" class="empty-cart">
-      <p>Your cart is empty.</p>
+    <div v-if="store.watchlist.length === 0" class="empty-list">
+      <p>Your watchlist is empty.</p>
       <button class="browse-button" @click="router.push('/purchase')">Browse Movies</button>
     </div>
 
-    <div v-else class="cart-list">
-      <div v-for="(movie, index) in store.cart" :key="movie.id || index" class="movie-card">
+    <div v-else class="watchlist">
+      <div v-for="(movie, index) in store.watchlist" :key="movie.id || index" class="movie-card">
         <img
           v-if="movie.poster"
           :src="`https://image.tmdb.org/t/p/w500/${movie.poster}`"
@@ -58,7 +50,6 @@ const checkout = async () => {
           <div class="movie-header">
             <h2>{{ movie.title }}</h2>
             <span v-if="movie.release_date" class="movie-year">{{ formatYear(movie.release_date) }}</span>
-            <span class="movie-price">{{ formatPrice(priceFor(movie.release_date)) }}</span>
           </div>
 
           <div v-if="movie.genres?.length" class="movie-genres">
@@ -74,18 +65,11 @@ const checkout = async () => {
             <span v-if="movie.runtime" class="meta-item">{{ movie.runtime }} min</span>
           </div>
 
-          <button class="delete-button" @click="store.removeFromCart(index)">Remove</button>
+          <div class="card-actions">
+            <button class="watched-button" @click="markWatched(index)">Watched it</button>
+            <button class="delete-button" @click="store.removeFromWatchlist(index)">Remove</button>
+          </div>
         </div>
-      </div>
-
-      <div class="cart-summary">
-        <div class="summary-row">
-          <span>Total ({{ store.cartCount }} {{ store.cartCount === 1 ? "movie" : "movies" }})</span>
-          <strong>{{ formatPrice(cartTotal) }}</strong>
-        </div>
-        <button class="checkout-button" @click="checkout" :disabled="isCheckingOut">
-          {{ isCheckingOut ? "Placing order..." : "Checkout" }}
-        </button>
       </div>
     </div>
   </div>
@@ -99,24 +83,24 @@ const checkout = async () => {
   margin: 0 auto;
 }
 
-.cart-header {
+.list-header {
   margin-bottom: 2rem;
 }
 
-.cart-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.cart-header h1 {
+.list-header h1 {
   font-size: 2rem;
   margin-top: 1rem;
 }
 
-.cart-header h1 span {
+.list-header h1 span {
   color: rgba(255, 255, 255, 0.5);
   font-weight: normal;
+}
+
+.list-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .back-button {
@@ -133,13 +117,13 @@ const checkout = async () => {
   background-color: var(--accent-soft);
 }
 
-.empty-cart {
+.empty-list {
   text-align: center;
   padding: 4rem 2rem;
   color: rgba(255, 255, 255, 0.5);
 }
 
-.empty-cart p {
+.empty-list p {
   font-size: 1.2rem;
   margin-bottom: 1.5rem;
 }
@@ -214,13 +198,6 @@ const checkout = async () => {
   font-size: 1rem;
 }
 
-.movie-price {
-  margin-left: auto;
-  color: var(--success);
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
 .movie-genres {
   display: flex;
   flex-wrap: wrap;
@@ -257,9 +234,28 @@ const checkout = async () => {
   color: rgba(255, 255, 255, 0.8);
 }
 
-.delete-button {
-  align-self: flex-start;
+.card-actions {
+  display: flex;
+  gap: 0.6rem;
   margin-top: auto;
+}
+
+.watched-button {
+  padding: 0.45rem 1rem;
+  background-color: transparent;
+  color: var(--success);
+  border: 1px solid var(--success);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.watched-button:hover {
+  background-color: var(--success);
+  color: #0d0d1f;
+}
+
+.delete-button {
   padding: 0.45rem 1rem;
   background-color: transparent;
   color: #ff6b6b;
@@ -272,52 +268,6 @@ const checkout = async () => {
 .delete-button:hover {
   background-color: #ff6b6b;
   color: white;
-}
-
-.cart-summary {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  margin-top: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 1.05rem;
-}
-
-.summary-row span {
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.summary-row strong {
-  font-size: 1.3rem;
-  color: var(--success);
-}
-
-.checkout-button {
-  padding: 0.85rem;
-  background: var(--accent-strong);
-  color: white;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-  font-size: 1rem;
-  transition: filter 0.2s;
-}
-
-.checkout-button:hover:not(:disabled) {
-  filter: brightness(1.15);
-}
-
-.checkout-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 @media screen and (max-width: 600px) {
@@ -335,10 +285,6 @@ const checkout = async () => {
     justify-content: center;
   }
 
-  .movie-price {
-    margin-left: 0;
-  }
-
   .movie-genres {
     justify-content: center;
   }
@@ -351,8 +297,8 @@ const checkout = async () => {
     justify-content: center;
   }
 
-  .delete-button {
-    align-self: center;
+  .card-actions {
+    justify-content: center;
   }
 }
 </style>

@@ -13,6 +13,11 @@ const logout = () => {
   router.push("/");
 };
 
+const goToOrders = () => {
+  open.value = false;
+  router.push("/orders");
+};
+
 const onClickOutside = (event) => {
   if (menuRef.value && !menuRef.value.contains(event.target)) {
     open.value = false;
@@ -31,7 +36,8 @@ onUnmounted(() => document.removeEventListener("click", onClickOutside));
     </button>
     <div v-if="open" class="dropdown" role="menu">
       <div class="user-email">{{ store.user?.email }}</div>
-      <button class="logout-item" role="menuitem" @click="logout">Log out</button>
+      <button class="menu-item" role="menuitem" @click="goToOrders">My Orders</button>
+      <button class="menu-item danger" role="menuitem" @click="logout">Log out</button>
     </div>
   </div>
 </template>
@@ -90,7 +96,7 @@ onUnmounted(() => document.removeEventListener("click", onClickOutside));
   white-space: nowrap;
 }
 
-.logout-item {
+.menu-item {
   width: 100%;
   text-align: left;
   padding: 0.5rem 0.75rem;
@@ -101,7 +107,11 @@ onUnmounted(() => document.removeEventListener("click", onClickOutside));
   transition: background-color 0.15s, color 0.15s;
 }
 
-.logout-item:hover {
+.menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.menu-item.danger:hover {
   background: var(--danger-soft);
   color: var(--danger);
 }

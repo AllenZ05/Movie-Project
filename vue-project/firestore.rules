@@ -20,6 +20,14 @@ service cloud.firestore {
                      request.resource.data.cart is list;
     }
 
+    // Order history rules
+    match /orders/{userEmail} {
+      allow read: if isOwner(userEmail);
+      allow write: if isOwner(userEmail) &&
+                     request.resource.data.keys().hasOnly(['orders']) &&
+                     request.resource.data.orders is list;
+    }
+
     // Block access to all other collections by default
     match /{document=**} {
       allow read, write: if false;

@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useStore } from "../store";
 import { auth, firestore } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
@@ -14,6 +14,7 @@ import {
 
 const store = useStore();
 const router = useRouter();
+const route = useRoute();
 const emailRegister = ref("");
 const emailLogin = ref("");
 const passwordRegister = ref("");
@@ -22,6 +23,11 @@ const passwordLogin = ref("");
 const isLoading = ref(false);
 const errorMessage = ref("");
 const isLoginMode = ref(true);
+
+const goAfterAuth = () => {
+  const redirect = route.query.redirect;
+  router.push(typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/purchase");
+};
 
 const registerViaEmail = async () => {
   errorMessage.value = "";
@@ -39,7 +45,7 @@ const registerViaEmail = async () => {
     const { user } = await createUserWithEmailAndPassword(auth, emailRegister.value, passwordRegister.value);
     await setDoc(doc(firestore, "carts", user.email), { cart: [] });
     store.user = user;
-    router.push("/purchase");
+    goAfterAuth();
   } catch (error) {
     errorMessage.value =
       error.code === "auth/email-already-in-use"
@@ -58,7 +64,7 @@ const loginViaEmail = async () => {
   try {
     const { user } = await signInWithEmailAndPassword(auth, emailLogin.value, passwordLogin.value);
     store.user = user;
-    router.push("/purchase");
+    goAfterAuth();
   } catch (error) {
     errorMessage.value =
       error.code === "auth/invalid-credential"
@@ -94,7 +100,7 @@ const registerViaGoogle = async () => {
   try {
     const { user } = await signInWithPopup(auth, new GoogleAuthProvider());
     store.user = user;
-    router.push("/purchase");
+    goAfterAuth();
   } catch (error) {
     if (error.code !== "auth/popup-closed-by-user") {
       errorMessage.value = "Google sign-in failed. Please try again.";

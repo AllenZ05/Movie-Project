@@ -1,14 +1,29 @@
 <script setup>
+import { ref, computed } from "vue";
 import { useStore } from "../store/index.js";
 import { useRouter } from "vue-router";
 import UserMenu from "../components/UserMenu.vue";
+import { priceFor, formatPrice } from "../pricing";
 
 const router = useRouter();
 const store = useStore();
+const isCheckingOut = ref(false);
+
+const cartTotal = computed(() => store.cart.reduce((sum, movie) => sum + priceFor(movie.release_date), 0));
 
 const formatYear = (date) => {
   if (!date) return "";
   return new Date(date).getFullYear();
+};
+
+const checkout = async () => {
+  isCheckingOut.value = true;
+  const order = await store.checkout();
+  isCheckingOut.value = false;
+  if (order) {
+    store.addToast("Order placed!");
+    router.push("/orders");
+  }
 };
 </script>
 
@@ -43,6 +58,7 @@ const formatYear = (date) => {
           <div class="movie-header">
             <h2>{{ movie.title }}</h2>
             <span v-if="movie.release_date" class="movie-year">{{ formatYear(movie.release_date) }}</span>
+            <span class="movie-price">{{ formatPrice(priceFor(movie.release_date)) }}</span>
           </div>
 
           <div v-if="movie.genres?.length" class="movie-genres">
@@ -60,6 +76,16 @@ const formatYear = (date) => {
 
           <button class="delete-button" @click="store.removeFromCart(index)">Remove</button>
         </div>
+      </div>
+
+      <div class="cart-summary">
+        <div class="summary-row">
+          <span>Total ({{ store.cartCount }} {{ store.cartCount === 1 ? "movie" : "movies" }})</span>
+          <strong>{{ formatPrice(cartTotal) }}</strong>
+        </div>
+        <button class="checkout-button" @click="checkout" :disabled="isCheckingOut">
+          {{ isCheckingOut ? "Placing order..." : "Checkout" }}
+        </button>
       </div>
     </div>
   </div>
@@ -188,6 +214,13 @@ const formatYear = (date) => {
   font-size: 1rem;
 }
 
+.movie-price {
+  margin-left: auto;
+  color: var(--success);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
 .movie-genres {
   display: flex;
   flex-wrap: wrap;
@@ -241,6 +274,52 @@ const formatYear = (date) => {
   color: white;
 }
 
+.cart-summary {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.05rem;
+}
+
+.summary-row span {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.summary-row strong {
+  font-size: 1.3rem;
+  color: var(--success);
+}
+
+.checkout-button {
+  padding: 0.85rem;
+  background: var(--accent-strong);
+  color: white;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  transition: filter 0.2s;
+}
+
+.checkout-button:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.checkout-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media screen and (max-width: 600px) {
   .movie-card {
     flex-direction: column;
@@ -254,6 +333,10 @@ const formatYear = (date) => {
 
   .movie-header {
     justify-content: center;
+  }
+
+  .movie-price {
+    margin-left: 0;
   }
 
   .movie-genres {

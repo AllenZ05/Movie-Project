@@ -1,6 +1,7 @@
 <script setup>
 import axios from "axios";
 import { useStore } from "../store";
+import { priceFor, formatPrice } from "../pricing";
 import { ref, onMounted, computed } from "vue";
 
 import { onUnmounted } from "vue";
@@ -46,6 +47,8 @@ const formatDate = (date) => {
 };
 
 const formattedReleaseDate = computed(() => formatDate(movie.value?.release_date));
+
+const price = computed(() => (movie.value ? formatPrice(priceFor(movie.value.release_date)) : ""));
 
 const handleAddToCart = async () => {
   if (!movie.value) return;
@@ -174,7 +177,13 @@ onMounted(async () => {
                   :disabled="addedToCart !== false"
                   :class="{ added: addedToCart === true, duplicate: addedToCart === 'duplicate' }"
                 >
-                  {{ addedToCart === "duplicate" ? "Already in Cart" : addedToCart ? "Added to Cart!" : "Add to Cart" }}
+                  {{
+                    addedToCart === "duplicate"
+                      ? "Already in Cart"
+                      : addedToCart
+                        ? "Added to Cart!"
+                        : "Add to Cart — " + price
+                  }}
                 </button>
                 <button class="close-bottom-btn" @click="emit('toggleModal')">Close</button>
               </div>

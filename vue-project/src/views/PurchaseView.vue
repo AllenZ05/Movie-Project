@@ -1,7 +1,7 @@
 <script setup>
 import axios from "axios";
 import { ref, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import Modal from "../components/Modal.vue";
 import UserMenu from "../components/UserMenu.vue";
 import { useStore } from "../store";
@@ -10,6 +10,7 @@ const store = useStore();
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const router = useRouter();
+const route = useRoute();
 
 const genres = [
   { id: "", name: "All" },
@@ -40,8 +41,18 @@ const search = ref("");
 const movies = ref(null);
 const page = ref(1);
 const totalPages = ref(0);
-const showModal = ref(false);
-const selectedMovieId = ref(null);
+
+// The open movie lives in the URL (?movie=<id>) so details are deep-linkable
+const selectedMovieId = computed(() => route.query.movie);
+
+const openMovie = (id) => {
+  router.push({ query: { ...route.query, movie: id } });
+};
+
+const closeMovie = () => {
+  const { movie, ...query } = route.query;
+  router.push({ query });
+};
 
 const isLoading = ref(false);
 const error = ref(null);
@@ -115,11 +126,6 @@ const onSortChange = () => {
 const navigate = (direction) => {
   page.value = Math.max(1, Math.min(page.value + direction, totalPages.value));
   getMovies();
-};
-
-const toggleModal = (id) => {
-  selectedMovieId.value = id;
-  showModal.value = !showModal.value;
 };
 
 // Initial load
@@ -202,9 +208,9 @@ onMounted(() => {
         role="button"
         tabindex="0"
         :aria-label="movie.title"
-        @click="toggleModal(movie.id)"
-        @keydown.enter="toggleModal(movie.id)"
-        @keydown.space.prevent="toggleModal(movie.id)"
+        @click="openMovie(movie.id)"
+        @keydown.enter="openMovie(movie.id)"
+        @keydown.space.prevent="openMovie(movie.id)"
       >
         <img
           v-if="movie.poster_path"
@@ -235,7 +241,7 @@ onMounted(() => {
       No movies found. Try different search terms or filters.
     </div>
 
-    <Modal v-if="showModal" :id="selectedMovieId" @toggleModal="toggleModal" />
+    <Modal v-if="selectedMovieId" :id="selectedMovieId" :key="selectedMovieId" @toggleModal="closeMovie" />
   </main>
 </template>
 

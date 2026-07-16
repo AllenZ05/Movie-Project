@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { auth, firestore } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { setDoc, updateDoc, getDoc, doc } from "firebase/firestore";
+import { priceFor } from "../pricing";
 
 let nextToastId = 1;
 
@@ -61,6 +62,39 @@ export const useStore = defineStore("store", {
         this.cart.splice(index, 0, removed);
         this.addToast("Couldn't update your cart. Please try again.", "error");
       }
+    },
+    async checkout() {
+      const items = this.cart.map((movie) => ({
+        id: movie.id,
+        title: movie.title,
+        poster: movie.poster || null,
+        price: priceFor(movie.release_date),
+      }));
+      const order = {
+        id: Date.now(),
+        date: new Date().toISOString(),
+        items,
+        total: items.reduce((sum, item) => sum + item.price, 0),
+      };
+
+      try {
+        const orderRef = doc(firestore, "orders", this.user.email);
+        const snapshot = await getDoc(orderRef);
+        const orders = snapshot.exists() ? snapshot.data().orders : [];
+        orders.push(order);
+        await setDoc(orderRef, { orders });
+      } catch (e) {
+        this.addToast("Checkout failed. Please try again.", "error");
+        return null;
+      }
+
+      this.cart = [];
+      try {
+        await setDoc(doc(firestore, "carts", this.user.email), { cart: [] });
+      } catch (e) {
+        console.error("Failed to clear cart after checkout:", e);
+      }
+      return order;
     },
     logout() {
       auth.signOut();

@@ -1,6 +1,6 @@
 # 123A-Movies
 
-A movie discovery web app. Browse, search, and filter movies from [TMDB](https://www.themoviedb.org/), watch trailers, and save titles to a cart that syncs to your account.
+A movie discovery web app. Browse, search, and filter movies from [TMDB](https://www.themoviedb.org/), watch trailers, save titles to a cart that syncs to your account, and check out to build an order history.
 
 ## Tech Stack
 

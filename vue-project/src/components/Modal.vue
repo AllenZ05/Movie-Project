@@ -65,7 +65,7 @@ onMounted(async () => {
         api_key: import.meta.env.VITE_TMDB_API_KEY,
         region: "US",
         language: "en",
-        include_adult: true,
+        include_adult: false,
         append_to_response: "credits,release_dates,videos",
       },
     });

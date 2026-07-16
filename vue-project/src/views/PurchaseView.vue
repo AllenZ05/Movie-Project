@@ -30,7 +30,7 @@ const currentParams = computed(() => ({
   api_key: TMDB_API_KEY,
   region: "US",
   language: "en",
-  include_adult: true,
+  include_adult: false,
   page: page.value,
   ...(genre.value && { with_genres: genre.value }),
   ...(search.value && { query: search.value }),
@@ -46,13 +46,25 @@ const getMovies = async () => {
       params: currentParams.value,
     });
     movies.value = response.data;
-    totalPages.value = response.data.total_pages;
+    // TMDB rejects requests beyond page 500
+    totalPages.value = Math.min(response.data.total_pages, 500);
   } catch (err) {
-    error.value = err.response?.data?.message || "Failed to load movies. Please try again.";
+    error.value = err.response?.data?.status_message || "Failed to load movies. Please try again.";
     movies.value = null;
   } finally {
     isLoading.value = false;
   }
+};
+
+const newSearch = () => {
+  page.value = 1;
+  getMovies();
+};
+
+// The search endpoint ignores genre, so picking a genre exits search mode
+const onGenreChange = () => {
+  search.value = "";
+  newSearch();
 };
 
 const navigate = (direction) => {
@@ -86,13 +98,13 @@ onMounted(() => {
       </div>
       <div class="toolbar">
         <div class="search-group">
-          <input type="search" placeholder="Search movies..." v-model="search" @keyup.enter="getMovies" />
-          <button class="search-btn" @click="getMovies" :disabled="isLoading">
+          <input type="search" placeholder="Search movies..." v-model="search" @keyup.enter="newSearch" />
+          <button class="search-btn" @click="newSearch" :disabled="isLoading">
             {{ isLoading ? "..." : "Search" }}
           </button>
         </div>
         <div class="filter-group">
-          <select v-model="genre" @change="getMovies">
+          <select v-model="genre" @change="onGenreChange">
             <option value="28">Action</option>
             <option value="10751">Family</option>
             <option value="878">Sci-Fi</option>
@@ -117,7 +129,7 @@ onMounted(() => {
         <div class="pagination">
           <button @click="navigate(-1)" :disabled="page === 1 || isLoading">&lsaquo;</button>
           <span>{{ page }} / {{ totalPages }}</span>
-          <button @click="navigate(1)" :disabled="page === totalPages || isLoading">&rsaquo;</button>
+          <button @click="navigate(1)" :disabled="page >= totalPages || isLoading">&rsaquo;</button>
         </div>
       </div>
     </header>

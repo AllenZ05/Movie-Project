@@ -11,12 +11,12 @@ service cloud.firestore {
     }
 
     // Cart collection rules
+    // Note: multiple allow statements are OR'ed, so ownership and data
+    // validation must be combined into a single condition
     match /carts/{userEmail} {
-      // Only allow users to read and write their own cart
-      allow read, write: if isOwner(userEmail);
-      
-      // Validate cart data structure
-      allow write: if request.resource.data.keys().hasOnly(['cart']) && 
+      allow read: if isOwner(userEmail);
+      allow write: if isOwner(userEmail) &&
+                     request.resource.data.keys().hasOnly(['cart']) &&
                      request.resource.data.cart is list;
     }
 

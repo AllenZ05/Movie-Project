@@ -26,7 +26,7 @@ const isLoginMode = ref(true);
 
 const goAfterAuth = () => {
   const redirect = route.query.redirect;
-  router.push(typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/purchase");
+  router.push(typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/browse");
 };
 
 const registerViaEmail = async () => {

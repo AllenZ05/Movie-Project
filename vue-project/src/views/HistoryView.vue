@@ -18,7 +18,7 @@ const formatDate = (iso) =>
   <div id="container">
     <div class="history-header">
       <div class="history-nav">
-        <button class="back-button" @click="router.push('/purchase')">&larr; Back to Movies</button>
+        <button class="back-button" @click="router.push('/browse')">&larr; Back to Movies</button>
         <UserMenu />
       </div>
       <h1>
@@ -27,8 +27,8 @@ const formatDate = (iso) =>
     </div>
 
     <div v-if="watched.length === 0" class="state-message">
-      <p>You haven't marked any movies as watched yet.</p>
-      <button class="browse-button" @click="router.push('/purchase')">Browse Movies</button>
+      <p>You haven't marked anything as watched yet.</p>
+      <button class="browse-button" @click="router.push('/browse')">Browse Movies</button>
     </div>
 
     <div v-else class="history-list">

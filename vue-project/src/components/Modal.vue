@@ -198,7 +198,7 @@ onMounted(async () => {
                 <div v-if="movie.trailerUrl" id="Trailer">
                   <iframe
                     :src="movie.trailerUrl"
-                    title="Movie Trailer"
+                    title="Trailer"
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowfullscreen
@@ -216,7 +216,7 @@ onMounted(async () => {
                     saved === "duplicate"
                       ? "Remove from Watchlist"
                       : saved === "watched"
-                        ? "Watched — Remove from History"
+                        ? "Remove from Watch History"
                         : "Add to Watchlist"
                   }}
                 </button>

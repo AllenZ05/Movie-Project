@@ -157,8 +157,8 @@ const getMovies = async () => {
       params: currentParams.value,
     });
     movies.value = response.data;
-    // TMDB rejects requests beyond page 500
-    totalPages.value = Math.min(response.data.total_pages, 500);
+    // TMDB rejects requests beyond page 500; floor of 1 avoids showing "1 / 0" on empty results
+    totalPages.value = Math.min(Math.max(response.data.total_pages, 1), 500);
   } catch (err) {
     error.value = err.response?.data?.status_message || "Failed to load movies. Please try again.";
     movies.value = null;
@@ -202,6 +202,7 @@ const onFilterChange = () => {
 
 const navigate = (direction) => {
   page.value = Math.max(1, Math.min(page.value + direction, totalPages.value));
+  window.scrollTo(0, 0);
   getMovies();
 };
 
@@ -212,7 +213,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="purchase-view">
+  <main class="browse-view">
     <header class="header">
       <div class="nav-bar">
         <h1 class="website-title">123A-Movies</h1>
@@ -233,7 +234,8 @@ onMounted(() => {
         <div class="search-group">
           <input
             type="search"
-            placeholder="Search movies..."
+            :placeholder="mediaType === 'tv' ? 'Search TV shows...' : 'Search movies...'"
+            aria-label="Search"
             v-model="search"
             @input="queueSearch"
             @keyup.enter="newSearch"
@@ -333,7 +335,7 @@ onMounted(() => {
 
     <!-- No Results -->
     <div v-else-if="movies && !movies.results?.length" class="no-results">
-      No movies found. Try different search terms or filters.
+      No results found. Try different search terms or filters.
     </div>
 
     <Modal
@@ -347,7 +349,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.purchase-view {
+.browse-view {
   min-height: 100vh;
 }
 

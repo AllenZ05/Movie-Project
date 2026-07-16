@@ -3,7 +3,7 @@ import HomeView from "../views/HomeView.vue";
 import { useStore } from "../store";
 
 const LoginView = () => import("../views/LoginView.vue");
-const PurchaseView = () => import("../views/PurchaseView.vue");
+const BrowseView = () => import("../views/BrowseView.vue");
 const WatchlistView = () => import("../views/WatchlistView.vue");
 const HistoryView = () => import("../views/HistoryView.vue");
 const NotFoundView = () => import("../views/NotFoundView.vue");
@@ -26,8 +26,8 @@ export const router = createRouter({
       component: LoginView,
     },
     {
-      path: "/purchase",
-      component: PurchaseView,
+      path: "/browse",
+      component: BrowseView,
       meta: { requiresAuth: true },
     },
     {
@@ -43,6 +43,8 @@ export const router = createRouter({
     // Old paths from the cart/checkout era
     { path: "/cart", redirect: "/watchlist" },
     { path: "/orders", redirect: "/history" },
+    // Keep the query so old shared ?movie= deep links still open the modal
+    { path: "/purchase", redirect: (to) => ({ path: "/browse", query: to.query }) },
     {
       path: "/:pathMatch(.*)*",
       component: NotFoundView,
@@ -59,6 +61,6 @@ router.beforeEach((to) => {
 
   if (to.path === "/login" && store.user) {
     const redirect = to.query.redirect;
-    return typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/purchase";
+    return typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/browse";
   }
 });

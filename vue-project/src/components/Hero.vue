@@ -8,7 +8,7 @@ const router = useRouter();
   <main>
     <div class="hero-content">
       <h2>The number one movie website</h2>
-      <p>Explore your favorite movies in one place! Stay updated with the latest and trending releases!</p>
+      <p>Explore your favorite movies and TV shows in one place! Stay updated with the latest and trending releases!</p>
       <button id="loginButton" @click="router.push('/login')">Get Started</button>
     </div>
   </main>

@@ -13,11 +13,6 @@ const logout = () => {
   router.push("/");
 };
 
-const goToHistory = () => {
-  open.value = false;
-  router.push("/history");
-};
-
 const onClickOutside = (event) => {
   if (menuRef.value && !menuRef.value.contains(event.target)) {
     open.value = false;
@@ -36,7 +31,6 @@ onUnmounted(() => document.removeEventListener("click", onClickOutside));
     </button>
     <div v-if="open" class="dropdown" role="menu">
       <div class="user-email">{{ store.user?.email }}</div>
-      <button class="menu-item" role="menuitem" @click="goToHistory">Watch History</button>
       <button class="menu-item danger" role="menuitem" @click="logout">Log out</button>
     </div>
   </div>

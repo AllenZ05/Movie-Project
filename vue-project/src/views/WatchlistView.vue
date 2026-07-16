@@ -27,7 +27,7 @@ const markWatched = async (index) => {
   <div id="container">
     <div class="list-header">
       <div class="list-nav">
-        <button class="back-button" @click="router.push('/purchase')">&larr; Back to Movies</button>
+        <button class="back-button" @click="router.push('/browse')">&larr; Back to Movies</button>
         <UserMenu />
       </div>
       <h1>
@@ -43,11 +43,16 @@ const markWatched = async (index) => {
 
     <div v-if="store.watchlist.length === 0" class="empty-list">
       <p>Your watchlist is empty.</p>
-      <button class="browse-button" @click="router.push('/purchase')">Browse Movies</button>
+      <button class="browse-button" @click="router.push('/browse')">Browse Movies</button>
     </div>
 
     <div v-else class="watchlist">
-      <div v-for="(movie, index) in store.watchlist" :key="movie.id || index" class="movie-card">
+      <!-- Movie and TV ids can collide, so key on both -->
+      <div
+        v-for="(movie, index) in store.watchlist"
+        :key="`${movie.media_type || 'movie'}-${movie.id}`"
+        class="movie-card"
+      >
         <img
           v-if="movie.poster"
           :src="`https://image.tmdb.org/t/p/w500/${movie.poster}`"

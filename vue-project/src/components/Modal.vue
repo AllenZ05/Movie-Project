@@ -6,12 +6,20 @@ import { ref, onMounted, computed } from "vue";
 import { onUnmounted } from "vue";
 
 const store = useStore();
-const props = defineProps(["id"]);
+const props = defineProps(["id", "type"]);
 const emit = defineEmits(["toggleModal"]);
+const isTV = props.type === "tv";
 const movie = ref(null);
-const saved = ref(false);
 const isLoadingDetails = ref(true);
 const closeBtn = ref(null);
+
+// Open already knowing whether this title is saved or watched
+// (route query ids are strings; stored ids are numbers)
+const matchesThis = (item) =>
+  item.id === Number(props.id) && (item.media_type || "movie") === (isTV ? "tv" : "movie");
+const saved = ref(
+  store.watchlist.some(matchesThis) ? "duplicate" : store.watchHistory.some(matchesThis) ? "watched" : false,
+);
 
 // Lock body scroll while modal is open (including touch devices)
 const scrollY = window.scrollY;
@@ -45,34 +53,58 @@ const formatDate = (date) => {
   });
 };
 
-const formattedReleaseDate = computed(() => formatDate(movie.value?.release_date));
+const formattedReleaseDate = computed(() => formatDate(movie.value?.displayDate));
 
 const handleAddToWatchlist = async () => {
   if (!movie.value) return;
   const m = movie.value;
   const result = await store.addToWatchlist({
     id: m.id,
-    title: m.title,
+    media_type: isTV ? "tv" : "movie",
+    title: m.displayTitle,
     poster: m.poster_path,
     overview: m.overview,
-    release_date: m.release_date,
+    release_date: m.displayDate ?? null,
     vote_average: m.vote_average,
-    runtime: m.runtime,
+    runtime: m.runtime ?? null,
+    seasons: m.number_of_seasons ?? null,
     genres: m.genres?.map((g) => g.name) || [],
   });
   if (result === "added") {
-    saved.value = true;
-    store.addToast(`Added "${m.title}" to your watchlist`);
+    saved.value = "duplicate";
+    store.addToast(`Added "${m.displayTitle}" to your watchlist`);
   } else if (result === "duplicate") {
     saved.value = "duplicate";
   }
   // On "error" the store shows a toast and the button stays active for retry
 };
 
+const handleRemoveFromWatchlist = async () => {
+  const index = store.watchlist.findIndex(matchesThis);
+  if (index === -1 || (await store.removeFromWatchlist(index))) {
+    saved.value = false;
+    store.addToast(`Removed "${movie.value?.displayTitle}" from your watchlist`);
+  }
+};
+
+const handleUnwatch = async () => {
+  const entry = store.watchHistory.find(matchesThis);
+  if (!entry || (await store.removeFromHistory(entry))) {
+    saved.value = false;
+    store.addToast(`Removed "${movie.value?.displayTitle}" from your watch history`);
+  }
+};
+
+const handleAction = () => {
+  if (saved.value === "duplicate") return handleRemoveFromWatchlist();
+  if (saved.value === "watched") return handleUnwatch();
+  return handleAddToWatchlist();
+};
+
 onMounted(async () => {
   closeBtn.value?.focus();
   try {
-    const response = await axios.get(`https://api.themoviedb.org/3/movie/${props.id}`, {
+    const response = await axios.get(`https://api.themoviedb.org/3/${isTV ? "tv" : "movie"}/${props.id}`, {
       params: {
         api_key: import.meta.env.VITE_TMDB_API_KEY,
         region: "US",
@@ -82,6 +114,9 @@ onMounted(async () => {
       },
     });
     const data = response.data;
+
+    data.displayTitle = data.title || data.name;
+    data.displayDate = data.release_date || data.first_air_date;
 
     data.mainCast =
       data.credits?.cast
@@ -120,9 +155,9 @@ onMounted(async () => {
 <template>
   <Teleport to="body">
     <div id="outer-container" @click.self="emit('toggleModal')">
-      <div id="inner-container" role="dialog" aria-modal="true" :aria-label="movie?.title || 'Movie details'">
-        <button ref="closeBtn" class="close-btn" @click="emit('toggleModal')" aria-label="Close"></button>
-
+      <!-- Kept outside #inner-container: its transform animation would break this button's fixed positioning -->
+      <button ref="closeBtn" class="close-btn" @click="emit('toggleModal')" aria-label="Close"></button>
+      <div id="inner-container" role="dialog" aria-modal="true" :aria-label="movie?.displayTitle || 'Details'">
         <div class="modal-body">
           <div v-if="isLoadingDetails" class="modal-skeleton">
             <div class="skeleton-poster shimmer"></div>
@@ -138,12 +173,12 @@ onMounted(async () => {
 
           <div v-else-if="movie" id="MovieInfo">
             <div id="left-side">
-              <h1>{{ movie.title }}</h1>
+              <h1>{{ movie.displayTitle }}</h1>
               <img
                 v-if="movie.poster_path"
                 id="page-img"
                 :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
-                :alt="`${movie.title} poster`"
+                :alt="`${movie.displayTitle} poster`"
               />
             </div>
             <div id="right-side">
@@ -152,9 +187,13 @@ onMounted(async () => {
               <p v-if="genreNames"><strong>Genre:</strong> {{ genreNames }}</p>
               <p v-if="movie.mainCast"><strong>Main Cast:</strong> {{ movie.mainCast }}</p>
               <p v-if="movie.runtime"><strong>Runtime:</strong> {{ movie.runtime }} minutes</p>
+              <p v-if="isTV && movie.number_of_seasons">
+                <strong>Seasons:</strong> {{ movie.number_of_seasons }}
+                <span v-if="movie.number_of_episodes">({{ movie.number_of_episodes }} episodes)</span>
+              </p>
               <p v-if="movie.vote_average"><strong>Rating:</strong> {{ movie.vote_average.toFixed(1) }} / 10</p>
-              <p><strong>Budget:</strong> {{ movie.formattedBudget }}</p>
-              <p><strong>Revenue:</strong> {{ movie.formattedRevenue }}</p>
+              <p v-if="!isTV"><strong>Budget:</strong> {{ movie.formattedBudget }}</p>
+              <p v-if="!isTV"><strong>Revenue:</strong> {{ movie.formattedRevenue }}</p>
               <div id="trailer-container">
                 <div v-if="movie.trailerUrl" id="Trailer">
                   <iframe
@@ -170,11 +209,16 @@ onMounted(async () => {
               <div class="bottom-actions">
                 <button
                   id="AddButton"
-                  @click="handleAddToWatchlist"
-                  :disabled="saved !== false"
-                  :class="{ added: saved === true, duplicate: saved === 'duplicate' }"
+                  @click="handleAction"
+                  :class="{ duplicate: saved === 'duplicate' || saved === 'watched' }"
                 >
-                  {{ saved === "duplicate" ? "In Watchlist" : saved ? "Added to Watchlist!" : "Add to Watchlist" }}
+                  {{
+                    saved === "duplicate"
+                      ? "Remove from Watchlist"
+                      : saved === "watched"
+                        ? "Watched — Remove from History"
+                        : "Add to Watchlist"
+                  }}
                 </button>
                 <button class="close-bottom-btn" @click="emit('toggleModal')">Close</button>
               </div>
@@ -434,20 +478,12 @@ h2 {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-#AddButton:hover:not(:disabled) {
+#AddButton:hover {
   filter: brightness(1.15);
 }
 
-#AddButton:active:not(:disabled) {
+#AddButton:active {
   transform: scale(0.95);
-}
-
-#AddButton:disabled {
-  cursor: default;
-}
-
-#AddButton.added {
-  background: #17945f;
 }
 
 #AddButton.duplicate {

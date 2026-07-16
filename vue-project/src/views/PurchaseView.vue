@@ -12,7 +12,7 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const router = useRouter();
 const route = useRoute();
 
-const genres = [
+const movieGenres = [
   { id: "", name: "All" },
   { id: 28, name: "Action" },
   { id: 12, name: "Adventure" },
@@ -35,10 +35,38 @@ const genres = [
   { id: 37, name: "Western" },
 ];
 
+const tvGenres = [
+  { id: "", name: "All" },
+  { id: 10759, name: "Action & Adventure" },
+  { id: 16, name: "Animation" },
+  { id: 35, name: "Comedy" },
+  { id: 80, name: "Crime" },
+  { id: 99, name: "Documentary" },
+  { id: 18, name: "Drama" },
+  { id: 10751, name: "Family" },
+  { id: 10762, name: "Kids" },
+  { id: 9648, name: "Mystery" },
+  { id: 10763, name: "News" },
+  { id: 10764, name: "Reality" },
+  { id: 10765, name: "Sci-Fi & Fantasy" },
+  { id: 10766, name: "Soap" },
+  { id: 10767, name: "Talk" },
+  { id: 10768, name: "War & Politics" },
+  { id: 37, name: "Western" },
+];
+
+const mediaType = ref("movie");
 const genre = ref("");
 const sortBy = ref("popularity.desc");
 const era = ref("");
 const search = ref("");
+
+const genres = computed(() => (mediaType.value === "tv" ? tvGenres : movieGenres));
+
+// TV uses different sort/date field names than movies
+const dateKey = () => (mediaType.value === "tv" ? "first_air_date" : "primary_release_date");
+const sortParam = () =>
+  mediaType.value === "tv" && sortBy.value === "primary_release_date.desc" ? "first_air_date.desc" : sortBy.value;
 
 // Date-window params for the era filter; spread after the sort presets so
 // they override overlapping date/vote-count keys
@@ -52,24 +80,26 @@ const eraParams = () => {
     case "":
       return {};
     case "now_playing":
-      // Theatrical releases from the last ~6 weeks
-      return { with_release_type: "2|3", "release_date.gte": daysFromNow(-45), "release_date.lte": today };
+      // Movies: theatrical releases from the last ~6 weeks. TV: episodes airing recently
+      return mediaType.value === "tv"
+        ? { "air_date.gte": daysFromNow(-30), "air_date.lte": today }
+        : { with_release_type: "2|3", "release_date.gte": daysFromNow(-45), "release_date.lte": today };
     case "upcoming":
-      // Unreleased movies have few votes, so drop the sort presets' floors
+      // Unreleased titles have few votes, so drop the sort presets' floors
       return {
-        "primary_release_date.gte": daysFromNow(1),
-        "primary_release_date.lte": daysFromNow(365),
+        [`${dateKey()}.gte`]: daysFromNow(1),
+        [`${dateKey()}.lte`]: daysFromNow(365),
         "vote_count.gte": 0,
       };
     case "this_year":
-      return { "primary_release_date.gte": `${year}-01-01`, "primary_release_date.lte": today };
+      return { [`${dateKey()}.gte`]: `${year}-01-01`, [`${dateKey()}.lte`]: today };
     case "last_5":
-      return { "primary_release_date.gte": `${year - 5}-01-01`, "primary_release_date.lte": today };
+      return { [`${dateKey()}.gte`]: `${year - 5}-01-01`, [`${dateKey()}.lte`]: today };
     case "older":
-      return { "primary_release_date.lte": "1979-12-31" };
+      return { [`${dateKey()}.lte`]: "1979-12-31" };
     default: {
       const start = parseInt(era.value, 10);
-      return { "primary_release_date.gte": `${start}-01-01`, "primary_release_date.lte": `${start + 9}-12-31` };
+      return { [`${dateKey()}.gte`]: `${start}-01-01`, [`${dateKey()}.lte`]: `${start + 9}-12-31` };
     }
   }
 };
@@ -77,15 +107,18 @@ const movies = ref(null);
 const page = ref(1);
 const totalPages = ref(0);
 
-// The open movie lives in the URL (?movie=<id>) so details are deep-linkable
+// The open title lives in the URL (?movie=<id>&type=tv) so details are deep-linkable
 const selectedMovieId = computed(() => route.query.movie);
+const selectedType = computed(() => (route.query.type === "tv" ? "tv" : "movie"));
 
 const openMovie = (id) => {
-  router.push({ query: { ...route.query, movie: id } });
+  router.push({
+    query: { ...route.query, movie: id, ...(mediaType.value === "tv" && { type: "tv" }) },
+  });
 };
 
 const closeMovie = () => {
-  const { movie, ...query } = route.query;
+  const { movie, type, ...query } = route.query;
   router.push({ query });
 };
 
@@ -102,12 +135,12 @@ const currentParams = computed(() => ({
   ...(search.value
     ? { query: search.value }
     : {
-        sort_by: sortBy.value,
+        sort_by: sortParam(),
         ...(genre.value && { with_genres: genre.value }),
         // Vote-count floors keep obscure/unrated entries from dominating these sorts
         ...(sortBy.value === "vote_average.desc" && { "vote_count.gte": 200 }),
         ...(sortBy.value === "primary_release_date.desc" && {
-          "primary_release_date.lte": new Date().toISOString().slice(0, 10),
+          [`${dateKey()}.lte`]: new Date().toISOString().slice(0, 10),
           "vote_count.gte": 10,
         }),
         ...eraParams(),
@@ -115,7 +148,7 @@ const currentParams = computed(() => ({
 }));
 
 const getMovies = async () => {
-  const endpoint = search.value ? "search/movie" : "discover/movie";
+  const endpoint = `${search.value ? "search" : "discover"}/${mediaType.value}`;
   error.value = null;
   isLoading.value = true;
 
@@ -147,6 +180,14 @@ const queueSearch = () => {
   searchTimer = setTimeout(newSearch, 450);
 };
 
+const setMediaType = (type) => {
+  if (mediaType.value === type) return;
+  mediaType.value = type;
+  genre.value = ""; // genre ids differ between movies and TV
+  search.value = "";
+  newSearch();
+};
+
 // The search endpoint ignores genre/sort/era, so changing them exits search mode
 const selectGenre = (id) => {
   genre.value = id;
@@ -176,14 +217,19 @@ onMounted(() => {
       <div class="nav-bar">
         <h1 class="website-title">123A-Movies</h1>
         <div class="nav-actions">
-          <button class="watchlist-button" @click="router.push('/watchlist')">
+          <button class="nav-pill" @click="router.push('/watchlist')">
             Watchlist
             <span v-if="store.watchlistCount" class="count-badge">{{ store.watchlistCount }}</span>
           </button>
+          <button class="nav-pill" @click="router.push('/history')">History</button>
           <UserMenu />
         </div>
       </div>
       <div class="toolbar">
+        <div class="media-toggle">
+          <button :class="{ active: mediaType === 'movie' }" @click="setMediaType('movie')">Movies</button>
+          <button :class="{ active: mediaType === 'tv' }" @click="setMediaType('tv')">TV Shows</button>
+        </div>
         <div class="search-group">
           <input
             type="search"
@@ -256,7 +302,7 @@ onMounted(() => {
         class="tile"
         role="button"
         tabindex="0"
-        :aria-label="movie.title"
+        :aria-label="movie.title || movie.name"
         @click="openMovie(movie.id)"
         @keydown.enter="openMovie(movie.id)"
         @keydown.space.prevent="openMovie(movie.id)"
@@ -264,22 +310,22 @@ onMounted(() => {
         <img
           v-if="movie.poster_path"
           :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
-          :alt="movie.title"
+          :alt="movie.title || movie.name"
           loading="lazy"
         />
         <div v-else class="poster-placeholder">
           <div class="poster-placeholder-content">
-            <div class="movie-title">{{ movie.title }}</div>
-            <div class="release-date" v-if="movie.release_date">
-              {{ new Date(movie.release_date).getFullYear() }}
+            <div class="movie-title">{{ movie.title || movie.name }}</div>
+            <div class="release-date" v-if="movie.release_date || movie.first_air_date">
+              {{ new Date(movie.release_date || movie.first_air_date).getFullYear() }}
             </div>
           </div>
         </div>
         <span v-if="movie.vote_average" class="tile-rating">&#9733; {{ movie.vote_average.toFixed(1) }}</span>
         <div class="tile-overlay">
-          <div class="tile-title">{{ movie.title }}</div>
-          <div class="tile-year" v-if="movie.release_date">
-            {{ new Date(movie.release_date).getFullYear() }}
+          <div class="tile-title">{{ movie.title || movie.name }}</div>
+          <div class="tile-year" v-if="movie.release_date || movie.first_air_date">
+            {{ new Date(movie.release_date || movie.first_air_date).getFullYear() }}
           </div>
         </div>
       </div>
@@ -290,7 +336,13 @@ onMounted(() => {
       No movies found. Try different search terms or filters.
     </div>
 
-    <Modal v-if="selectedMovieId" :id="selectedMovieId" :key="selectedMovieId" @toggleModal="closeMovie" />
+    <Modal
+      v-if="selectedMovieId"
+      :id="selectedMovieId"
+      :type="selectedType"
+      :key="selectedMovieId + selectedType"
+      @toggleModal="closeMovie"
+    />
   </main>
 </template>
 
@@ -329,7 +381,7 @@ onMounted(() => {
   align-items: center;
 }
 
-.watchlist-button {
+.nav-pill {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-size: 0.85rem;
@@ -340,7 +392,7 @@ onMounted(() => {
   position: relative;
 }
 
-.watchlist-button:hover {
+.nav-pill:hover {
   background-color: rgba(255, 255, 255, 0.18);
 }
 
@@ -367,6 +419,31 @@ onMounted(() => {
   gap: 0.75rem;
   padding: 0.5rem 1.5rem 0.75rem;
   flex-wrap: wrap;
+}
+
+.media-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.media-toggle button {
+  padding: 0.55rem 1rem;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.media-toggle button.active {
+  background: var(--accent-strong);
+  color: white;
 }
 
 .search-group {

@@ -1,10 +1,13 @@
 <script setup>
+import { ref } from "vue";
 import { useStore } from "../store/index.js";
 import { useRouter } from "vue-router";
 import UserMenu from "../components/UserMenu.vue";
+import StarRating from "../components/StarRating.vue";
 
 const router = useRouter();
 const store = useStore();
+const lastWatched = ref(null);
 
 const formatYear = (date) => {
   if (!date) return "";
@@ -12,9 +15,10 @@ const formatYear = (date) => {
 };
 
 const markWatched = async (index) => {
-  const movie = await store.markWatched(index);
-  if (movie) {
-    store.addToast(`Marked "${movie.title}" as watched`);
+  const entry = await store.markWatched(index);
+  if (entry) {
+    lastWatched.value = entry;
+    store.addToast(`Marked "${entry.title}" as watched`);
   }
 };
 </script>
@@ -29,6 +33,12 @@ const markWatched = async (index) => {
       <h1>
         My Watchlist <span v-if="store.watchlistCount">({{ store.watchlistCount }})</span>
       </h1>
+    </div>
+
+    <div v-if="lastWatched" class="rate-banner">
+      <span class="rate-text">How was "{{ lastWatched.title }}"?</span>
+      <StarRating :item="lastWatched" />
+      <button class="banner-dismiss" @click="lastWatched = null" aria-label="Dismiss">&times;</button>
     </div>
 
     <div v-if="store.watchlist.length === 0" class="empty-list">
@@ -49,6 +59,7 @@ const markWatched = async (index) => {
         <div class="movie-info">
           <div class="movie-header">
             <h2>{{ movie.title }}</h2>
+            <span v-if="movie.media_type === 'tv'" class="tv-tag">TV</span>
             <span v-if="movie.release_date" class="movie-year">{{ formatYear(movie.release_date) }}</span>
           </div>
 
@@ -63,6 +74,9 @@ const markWatched = async (index) => {
               <strong>{{ movie.vote_average.toFixed ? movie.vote_average.toFixed(1) : movie.vote_average }}</strong> / 10
             </span>
             <span v-if="movie.runtime" class="meta-item">{{ movie.runtime }} min</span>
+            <span v-else-if="movie.seasons" class="meta-item">
+              {{ movie.seasons }} {{ movie.seasons === 1 ? "season" : "seasons" }}
+            </span>
           </div>
 
           <div class="card-actions">
@@ -115,6 +129,36 @@ const markWatched = async (index) => {
 
 .back-button:hover {
   background-color: var(--accent-soft);
+}
+
+.rate-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background-color: var(--surface);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: var(--radius);
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.rate-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner-dismiss {
+  background: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  transition: color 0.15s;
+}
+
+.banner-dismiss:hover {
+  color: white;
 }
 
 .empty-list {
@@ -196,6 +240,16 @@ const markWatched = async (index) => {
 .movie-year {
   color: rgba(255, 255, 255, 0.4);
   font-size: 1rem;
+}
+
+.tv-tag {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .movie-genres {

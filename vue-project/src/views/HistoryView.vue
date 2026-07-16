@@ -1,29 +1,17 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { computed } from "vue";
 import { useRouter } from "vue-router";
-import { doc, getDoc } from "firebase/firestore";
-import { firestore } from "../firebase";
 import { useStore } from "../store";
 import UserMenu from "../components/UserMenu.vue";
+import StarRating from "../components/StarRating.vue";
 
 const router = useRouter();
 const store = useStore();
-const watched = ref(null);
-const loadFailed = ref(false);
+
+const watched = computed(() => [...store.watchHistory].reverse());
 
 const formatDate = (iso) =>
   new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-
-onMounted(async () => {
-  try {
-    const snapshot = await getDoc(doc(firestore, "watchHistory", store.user.email));
-    watched.value = snapshot.exists() ? [...snapshot.data().watched].reverse() : [];
-  } catch (e) {
-    console.error("Failed to load watch history:", e);
-    loadFailed.value = true;
-    watched.value = [];
-  }
-});
 </script>
 
 <template>
@@ -38,11 +26,7 @@ onMounted(async () => {
       </h1>
     </div>
 
-    <div v-if="watched === null" class="state-message">Loading your watch history...</div>
-
-    <div v-else-if="loadFailed" class="state-message">Couldn't load your watch history. Please try again later.</div>
-
-    <div v-else-if="watched.length === 0" class="state-message">
+    <div v-if="watched.length === 0" class="state-message">
       <p>You haven't marked any movies as watched yet.</p>
       <button class="browse-button" @click="router.push('/purchase')">Browse Movies</button>
     </div>
@@ -52,8 +36,15 @@ onMounted(async () => {
         <img v-if="movie.poster" :src="`https://image.tmdb.org/t/p/w92/${movie.poster}`" :alt="movie.title" />
         <div v-else class="thumb-placeholder"></div>
         <div class="item-info">
-          <span class="item-title">{{ movie.title }}</span>
+          <span class="item-title">
+            {{ movie.title }}
+            <span v-if="movie.media_type === 'tv'" class="tv-tag">TV</span>
+          </span>
           <span class="item-date">Watched {{ formatDate(movie.watchedAt) }}</span>
+        </div>
+        <div class="item-actions">
+          <StarRating :item="movie" />
+          <button class="delete-button" @click="store.removeFromHistory(movie)">Remove</button>
         </div>
       </div>
     </div>
@@ -161,6 +152,7 @@ onMounted(async () => {
   flex-direction: column;
   gap: 0.2rem;
   min-width: 0;
+  flex: 1;
 }
 
 .item-title {
@@ -173,5 +165,50 @@ onMounted(async () => {
 .item-date {
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.85rem;
+}
+
+.tv-tag {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.delete-button {
+  padding: 0.4rem 0.85rem;
+  background-color: transparent;
+  color: #ff6b6b;
+  border: 1px solid #ff6b6b;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.delete-button:hover {
+  background-color: #ff6b6b;
+  color: white;
+}
+
+@media screen and (max-width: 600px) {
+  .history-item {
+    flex-wrap: wrap;
+  }
+
+  .item-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 </style>

@@ -1,15 +1,15 @@
 # Movie Project
 
-A responsive, user-friendly movie website where you can discover any movie you want. The project integrates data from the TMDb API, ensuring up-to-date movie content around the clock. It features an intuitive search bar for seamless movie discovery and selection, and leverages Firebase for user authentication, login management, and storage of user watchlists and watch history
+A responsive, user-friendly website where you can discover any movie or TV show you want. The project integrates data from the TMDb API, ensuring up-to-date content around the clock. It features an intuitive search bar for seamless discovery and selection, and leverages Firebase for user authentication, login management, and storage of user watchlists and watch history
 
 Originally started as a fun project in my grade 12 CS class, the project has since undergone significant improvements with the addition of new features and enhancements. It was initially part of a larger private repository, but once the project was mostly completed, I moved it to this dedicated repo
 
 ## Features
 
 - **User Authentication:** Secure account creation and login with email or Google, including password reset
-- **Watchlist Management:** Registered users can easily add or remove movies from their personal watchlist
-- **Watch History:** Mark watchlist movies as watched to build a dated history of everything you've seen
-- **Movie Search and Discovery:** Search as you type, browse by genre, filter by year, decade, now playing, or coming soon, and sort by popularity, rating, or release date
+- **Watchlist Management:** Registered users can easily add or remove movies and TV shows from their personal watchlist
+- **Watch History:** Mark watchlist titles as watched to build a dated history of everything you've seen, with personal 5-star ratings
+- **Search and Discovery:** Search movies and TV shows as you type, browse by genre, filter by year, decade, now playing, or coming soon, and sort by popularity, rating, or release date
 - **Detailed Movie Information:** Access comprehensive movie details, including synopsis, release date, genre, cast, runtime, budget, revenue, ratings, trailers, and more — with shareable links to individual movies
 
 ## Tech Stack and Tools Used 
@@ -54,7 +54,7 @@ Deploys hosting (from `dist/`) and Firestore rules, per `firebase.json`
 - **Jul 2023 - Aug 2023:** Refactoring and small bug fixes
 - **Sep 2023:** Small improvements and movement to this repository
 - **Jan 2024:** Major UI and functionality enhancements and code refactoring
-- **Jul 2026:** Major overhaul — Firestore security fix, modernized UI (genre chips, sorting, year/era filters, toasts, accessibility), deep-linkable movie pages, and a pivot from the old cart/checkout flow to Watchlist + Watch History
+- **Jul 2026:** Major overhaul — Firestore security fix, modernized UI (genre chips, sorting, year/era filters, toasts, accessibility), deep-linkable movie pages, a pivot from the old cart/checkout flow to Watchlist + Watch History, TV show support, and personal ratings
 
 ## Hosted website 
 

@@ -1,9 +1,19 @@
 import { defineStore } from "pinia";
-import { auth, firestore } from "../firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { setDoc, getDoc, doc } from "firebase/firestore";
+import { toRaw } from "vue";
+import { auth } from "../firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { getLibraryServices } from "../firebase/libraryLoader.js";
+import { commitLibraryChange } from "../lib/library.js";
+import { mediaKey } from "../lib/media.js";
 
+const sessions = new WeakMap();
 let nextToastId = 1;
+const sessionFor = (store) => {
+  // Pinia devtools wrap each action in a fresh proxy. Use the stable state as the key.
+  const key = toRaw(store.$state);
+  if (!sessions.has(key)) sessions.set(key, { authPromise: null, queue: Promise.resolve(), epoch: 0 });
+  return sessions.get(key);
+};
 
 export const useStore = defineStore("store", {
   state: () => ({
@@ -11,126 +21,164 @@ export const useStore = defineStore("store", {
     watchlist: [],
     watchHistory: [],
     authReady: false,
+    libraryLoading: false,
+    libraryError: false,
+    pendingWrites: 0,
     toasts: [],
   }),
   getters: {
     watchlistCount: (state) => state.watchlist.length,
     isLoggedIn: (state) => !!state.user,
+    libraryBusy: (state) => state.libraryLoading || state.pendingWrites > 0,
+    isSaved: (state) => (item) => state.watchlist.some((movie) => mediaKey(movie) === mediaKey(item)),
+    isWatched: (state) => (item) => state.watchHistory.some((movie) => mediaKey(movie) === mediaKey(item)),
   },
   actions: {
     initAuth() {
-      return new Promise((resolve) => {
-        onAuthStateChanged(auth, async (user) => {
-          if (user) {
-            this.user = user;
-            try {
-              const [listDoc, historyDoc] = await Promise.all([
-                getDoc(doc(firestore, "watchlists", user.email)),
-                getDoc(doc(firestore, "watchHistory", user.email)),
-              ]);
-              if (listDoc.exists()) {
-                this.watchlist = listDoc.data().movies;
-              }
-              if (historyDoc.exists()) {
-                this.watchHistory = historyDoc.data().watched;
-              }
-            } catch (e) {
-              console.error("Failed to load user data:", e);
+      const session = sessionFor(this);
+      if (!session.authPromise) {
+        session.authPromise = new Promise((resolve) => {
+          onAuthStateChanged(
+            auth,
+            (user) => {
+              this.setSession(user);
+              resolve();
+            },
+            () => {
+              this.authReady = true;
+              this.addToast("Sign-in is unavailable. You can still explore movies.", "error");
+              resolve();
             }
-          } else {
-            this.user = null;
-            this.watchlist = [];
-            this.watchHistory = [];
-          }
-          this.authReady = true;
-          resolve();
+          );
         });
-      });
-    },
-    async addToWatchlist(movieData) {
-      // Movie and TV ids can collide, so match on both id and media type
-      const alreadySaved = this.watchlist.some(
-        (item) => item.id === movieData.id && (item.media_type || "movie") === (movieData.media_type || "movie"),
-      );
-      if (alreadySaved) return "duplicate";
-
-      this.watchlist.push(movieData);
-      try {
-        await setDoc(doc(firestore, "watchlists", this.user.email), { movies: this.watchlist });
-        return "added";
-      } catch (e) {
-        this.watchlist.pop();
-        this.addToast("Couldn't save to your watchlist. Please try again.", "error");
-        return "error";
       }
+      return session.authPromise;
     },
-    async removeFromWatchlist(index) {
-      const [removed] = this.watchlist.splice(index, 1);
-      try {
-        await setDoc(doc(firestore, "watchlists", this.user.email), { movies: this.watchlist });
-        return true;
-      } catch (e) {
-        this.watchlist.splice(index, 0, removed);
-        this.addToast("Couldn't update your watchlist. Please try again.", "error");
-        return false;
-      }
-    },
-    async markWatched(index) {
-      const [movie] = this.watchlist.splice(index, 1);
-      const entry = {
-        id: movie.id,
-        media_type: movie.media_type || "movie",
-        title: movie.title,
-        poster: movie.poster || null,
-        watchedAt: new Date().toISOString(),
-        rating: null,
-      };
-      this.watchHistory.push(entry);
-      try {
-        await setDoc(doc(firestore, "watchHistory", this.user.email), { watched: this.watchHistory });
-        await setDoc(doc(firestore, "watchlists", this.user.email), { movies: this.watchlist });
-        return entry;
-      } catch (e) {
-        this.watchHistory.pop();
-        this.watchlist.splice(index, 0, movie);
-        this.addToast("Couldn't mark as watched. Please try again.", "error");
-        return null;
-      }
-    },
-    async removeFromHistory(item) {
-      const index = this.watchHistory.indexOf(item);
-      if (index === -1) return false;
-      this.watchHistory.splice(index, 1);
-      try {
-        await setDoc(doc(firestore, "watchHistory", this.user.email), { watched: this.watchHistory });
-        return true;
-      } catch (e) {
-        this.watchHistory.splice(index, 0, item);
-        this.addToast("Couldn't update your history. Please try again.", "error");
-        return false;
-      }
-    },
-    async setRating(item, rating) {
-      const previous = item.rating ?? null;
-      // Clicking your current rating clears it
-      item.rating = rating === previous ? null : rating;
-      try {
-        await setDoc(doc(firestore, "watchHistory", this.user.email), { watched: this.watchHistory });
-      } catch (e) {
-        item.rating = previous;
-        this.addToast("Couldn't save your rating. Please try again.", "error");
-      }
-    },
-    logout() {
-      auth.signOut();
-      this.user = null;
+    setSession(user) {
+      if (this.authReady && this.user?.uid === user?.uid) return;
+      sessionFor(this).epoch++;
+      this.user = user;
       this.watchlist = [];
       this.watchHistory = [];
+      this.libraryError = false;
+      this.authReady = true;
+      if (user) this.loadLibrary();
+      else this.libraryLoading = false;
     },
-    addToast(message, type = "success") {
+    async loadLibrary() {
+      if (!this.user?.email) return;
+      const session = sessionFor(this);
+      const epoch = session.epoch;
+      const email = this.user.email;
+      this.libraryLoading = true;
+      this.libraryError = false;
+      try {
+        const { getDoc, doc, firestore } = await getLibraryServices();
+        const [list, history] = await Promise.all([
+          getDoc(doc(firestore, "watchlists", email)),
+          getDoc(doc(firestore, "watchHistory", email)),
+        ]);
+        if (epoch !== session.epoch) return;
+        const movies = list.exists() ? list.data().movies : [];
+        const watched = history.exists() ? history.data().watched : [];
+        if (!Array.isArray(movies) || !Array.isArray(watched)) throw new Error("Invalid library data");
+        this.watchlist = movies;
+        this.watchHistory = watched;
+      } catch {
+        if (epoch === session.epoch) this.libraryError = true;
+      } finally {
+        if (epoch === session.epoch) this.libraryLoading = false;
+      }
+    },
+    async changeLibrary(command) {
+      if (!this.user?.email || this.libraryLoading || this.libraryError) return null;
+      const session = sessionFor(this);
+      const epoch = session.epoch;
+      const email = this.user.email;
+      this.pendingWrites++;
+      const task = session.queue.then(async () => {
+        const { doc, firestore, runTransaction } = await getLibraryServices();
+        if (epoch !== session.epoch || this.user?.email !== email) return null;
+        const refs = {
+          movies: doc(firestore, "watchlists", email),
+          watched: doc(firestore, "watchHistory", email),
+        };
+        const next = await runTransaction(firestore, (transaction) =>
+          commitLibraryChange(transaction, refs, command)
+        );
+        if (epoch !== session.epoch) return null;
+        this.watchlist = next.movies;
+        this.watchHistory = next.watched;
+        return next.result;
+      });
+      session.queue = task.catch(() => {});
+      try {
+        return await task;
+      } catch {
+        if (epoch === session.epoch)
+          this.addToast("Your change couldn’t be saved. Please try again.", "error");
+        return null;
+      } finally {
+        this.pendingWrites--;
+      }
+    },
+    addToWatchlist(item) {
+      return this.changeLibrary({ kind: "add", item });
+    },
+    async removeFromWatchlist(item) {
+      const removed = await this.changeLibrary({ kind: "remove", item });
+      if (removed)
+        this.addToast(`Removed “${removed.item.title}”`, "success", () =>
+          this.restoreItem("movies", removed)
+        );
+      return !!removed;
+    },
+    async markWatched(item) {
+      const entry = await this.changeLibrary({
+        kind: "watch",
+        item,
+        watchedAt: new Date().toISOString(),
+        entryId: crypto.randomUUID(),
+      });
+      if (entry) this.addToast(`Marked “${entry.title}” as watched`);
+      return entry;
+    },
+    async removeFromHistory(item) {
+      const removed = await this.changeLibrary({ kind: "unwatch", item });
+      if (removed)
+        this.addToast(`Removed “${removed.item.title}”`, "success", () =>
+          this.restoreItem("watched", removed)
+        );
+      return !!removed;
+    },
+    async restoreItem(collection, removed) {
+      const restored = await this.changeLibrary({ kind: "restore", collection, ...removed });
+      if (restored) this.addToast("Restored to your library");
+    },
+    setRating(item, rating) {
+      return this.changeLibrary({ kind: "rate", item, rating });
+    },
+    async logout() {
+      try {
+        await signOut(auth);
+        return true;
+      } catch {
+        this.addToast("Couldn’t sign out. Please try again.", "error");
+        return false;
+      }
+    },
+    addToast(message, type = "success", action = null) {
       const id = nextToastId++;
-      this.toasts.push({ id, message, type });
-      setTimeout(() => this.dismissToast(id), 4000);
+      const email = this.user?.email;
+      this.toasts.push({
+        id,
+        message,
+        type,
+        action: action ? () => this.user?.email === email && action() : null,
+      });
+      // Undo stays available until explicitly dismissed.
+      if (!action) setTimeout(() => this.dismissToast(id), 5000);
+      if (this.toasts.length > 4) this.toasts.shift();
     },
     dismissToast(id) {
       this.toasts = this.toasts.filter((toast) => toast.id !== id);

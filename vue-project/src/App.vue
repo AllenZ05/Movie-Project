@@ -1,53 +1,52 @@
 <script setup>
+import { computed, defineAsyncComponent } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useStore } from "./store";
+import Header from "./components/Header.vue";
 import Toasts from "./components/Toasts.vue";
-
+const Modal = defineAsyncComponent(() => import("./components/Modal.vue"));
 const store = useStore();
+const route = useRoute();
+const router = useRouter();
 store.initAuth();
-</script>
-
-<template>
-  <div v-if="!store.authReady" class="app-loading">
-    <div class="spinner"></div>
-  </div>
-  <RouterView v-else v-slot="{ Component }">
-    <Transition name="fade" mode="out-in">
-      <component :is="Component" />
-    </Transition>
-  </RouterView>
-  <Toasts />
-</template>
-
-<style scoped>
-.app-loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+const titleId = computed(() =>
+  typeof route.query.movie === "string" && /^\d+$/.test(route.query.movie) && route.path !== "/login"
+    ? route.query.movie
+    : null
+);
+const closeTitle = () => {
+  if (window.history.state?.titleOverlay) {
+    router.back();
+    return;
   }
+  const { movie, type, ...query } = route.query;
+  router.replace({ query });
+};
+</script>
+<template>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <Header />
+  <div v-if="store.libraryError" class="container library-error" role="alert">
+    Your library couldn’t be loaded. <button class="text-link" @click="store.loadLibrary()">Try again</button>
+  </div>
+  <RouterView />
+  <Toasts v-if="!titleId" />
+  <Modal
+    v-if="titleId"
+    :key="`${route.query.type}-${titleId}`"
+    :id="titleId"
+    :type="route.query.type === 'tv' ? 'tv' : 'movie'"
+    @close="closeTitle"
+  />
+</template>
+<style scoped>
+.library-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  padding-block: 0.6rem;
 }
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+.library-error button {
+  color: white;
+  margin-left: 0.7rem;
 }
 </style>

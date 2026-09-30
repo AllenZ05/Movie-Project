@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import HomeView from "../views/HomeView.vue";
 import { useStore } from "../store";
+import { safeRedirect } from "../lib/media.js";
 
 const LoginView = () => import("../views/LoginView.vue");
 const BrowseView = () => import("../views/BrowseView.vue");
@@ -28,7 +29,6 @@ export const router = createRouter({
     {
       path: "/browse",
       component: BrowseView,
-      meta: { requiresAuth: true },
     },
     {
       path: "/watchlist",
@@ -52,8 +52,9 @@ export const router = createRouter({
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const store = useStore();
+  if (to.meta.requiresAuth || to.path === "/login") await store.initAuth();
 
   if (to.meta.requiresAuth && !store.user) {
     return { path: "/login", query: { redirect: to.fullPath } };
@@ -61,6 +62,17 @@ router.beforeEach((to) => {
 
   if (to.path === "/login" && store.user) {
     const redirect = to.query.redirect;
-    return typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/browse";
+    return safeRedirect(redirect);
   }
+});
+
+router.afterEach((to) => {
+  const titles = {
+    "/": "Discover your next great watch",
+    "/browse": "Explore",
+    "/watchlist": "Your watchlist",
+    "/history": "Your watch history",
+    "/login": "Welcome back",
+  };
+  document.title = `${titles[to.path] || "Page not found"} · 123A Movies`;
 });

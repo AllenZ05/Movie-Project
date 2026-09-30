@@ -8,11 +8,13 @@ Originally started as a fun project in my grade 12 CS class, the project has sin
 
 ## Features
 
+- **Guest Discovery:** Explore movies and TV without an account, with cinematic featured artwork, weekly trending titles, and top-rated collections
 - **User Authentication:** Secure account creation and login with email or Google, including password reset
-- **Watchlist Management:** Registered users can easily add or remove movies and TV shows from their personal watchlist
+- **Watchlist Management:** Save titles directly from movie cards or details, search and sort your library, and undo removals
 - **Watch History:** Mark watchlist titles as watched to build a dated history of everything you've seen, with personal 5-star ratings
-- **Search and Discovery:** Search movies and TV shows as you type, browse by genre, filter by year, decade, now playing, or coming soon, and sort by popularity, rating, or release date
-- **Detailed Movie Information:** Access comprehensive movie details, including synopsis, release date, genre, cast, runtime, budget, revenue, ratings, trailers, and more, with shareable links to individual movies
+- **Search and Discovery:** Search movies and TV shows as you type, browse by genre, filter by year, decade, now playing, or coming soon, and separate current popularity from all-time rating volume. Highest/lowest scores default to 1,000+ TMDB ratings, with an adjustable minimum vote count and an explanation of each ranking
+- **Rating Context:** TMDB attribution and vote counts on cards, featured titles, details, and saved library entries. Compact counts expand to exact totals in title details. New saves preserve vote counts; older entries with no stored count show it as unavailable, with current data available in title details. Personal ratings stay separate from TMDB audience scores
+- **Detailed Movie Information:** Access comprehensive movie details, including synopsis, release date, genre, cast, runtime, budget, revenue, ratings, trailers, and more, with shareable links to individual movies and TV shows, accessible dialogs, and actions near the top on mobile
 
 ## Tech Stack and Tools Used 
 
@@ -54,10 +56,20 @@ Both services are free at this scale: TMDb's API is free for non-commercial use,
 
 </details>
 
+## Verification
+
+From `vue-project/`:
+
+- `npm test` runs regression tests for atomic library updates, overlapping saves, undo, legacy ratings, authentication readiness, redirects, library filtering/sorting, catalog vote thresholds, and rating-count preservation. Firebase services are replaced with deterministic test doubles; these tests do not access live accounts.
+- `npm run build` creates the production build.
+
+The database SDK loads only when a signed-in user needs their library. Existing email-keyed Firestore documents and rules remain compatible; no data migration is required.
+
 ## Timeline 
 
 - **May - Jun 2023:** Main development
 - **Jul 2023 - Aug 2023:** Refactoring and small bug fixes
 - **Sep 2023:** Small improvements and movement to this repository
 - **Jan 2024:** Major UI and functionality enhancements and code refactoring
-- **Jul 2026:** Major overhaul: Firestore security fix, modernized UI (genre chips, sorting, year/era filters, toasts, accessibility), deep-linkable movie pages, a pivot from the old cart/checkout flow to Watchlist + Watch History, TV show support, and personal ratings
+- **Jul 2026:** Major overhaul: Firestore security fix, modernized UI (genre chips, sorting, year/era filters, toasts, accessibility), deep-linkable movie pages, a pivot from the old cart/checkout flow to Watchlist + Watch History, TV show support, and personal rating
+- **Sep 2026:** Cinematic discovery redesign, public browsing, shared mobile navigation, compact searchable libraries, native title dialogs, reduced-motion support, atomic saves with conflict retries, undo, and authentication/search race fixes

@@ -1,818 +1,727 @@
 <script setup>
-import axios from "axios";
-import { ref, computed, onMounted } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import Modal from "../components/Modal.vue";
-import UserMenu from "../components/UserMenu.vue";
-import { useStore } from "../store";
-
-const store = useStore();
-const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const router = useRouter();
+import { ref, computed, watch, onUnmounted, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import MovieCard from "../components/MovieCard.vue";
+import Footer from "../components/Footer.vue";
+import Icon from "../components/Icon.vue";
+import AppSelect from "../components/AppSelect.vue";
+import { getTitles, isCancelled } from "../lib/tmdb";
+import {
+  movieGenres,
+  tvGenres,
+  discoveryParams,
+  discoverySortOptions,
+  minimumVotesOptions,
+  minimumVotesFor,
+} from "../lib/discovery";
 const route = useRoute();
-
-const movieGenres = [
-  { id: "", name: "All" },
-  { id: 28, name: "Action" },
-  { id: 12, name: "Adventure" },
-  { id: 16, name: "Animation" },
-  { id: 35, name: "Comedy" },
-  { id: 80, name: "Crime" },
-  { id: 99, name: "Documentary" },
-  { id: 18, name: "Drama" },
-  { id: 10751, name: "Family" },
-  { id: 14, name: "Fantasy" },
-  { id: 36, name: "History" },
-  { id: 27, name: "Horror" },
-  { id: 10402, name: "Music" },
-  { id: 9648, name: "Mystery" },
-  { id: 10749, name: "Romance" },
-  { id: 878, name: "Sci-Fi" },
-  { id: 53, name: "Thriller" },
-  { id: 10770, name: "TV Movie" },
-  { id: 10752, name: "War" },
-  { id: 37, name: "Western" },
-];
-
-const tvGenres = [
-  { id: "", name: "All" },
-  { id: 10759, name: "Action & Adventure" },
-  { id: 16, name: "Animation" },
-  { id: 35, name: "Comedy" },
-  { id: 80, name: "Crime" },
-  { id: 99, name: "Documentary" },
-  { id: 18, name: "Drama" },
-  { id: 10751, name: "Family" },
-  { id: 10762, name: "Kids" },
-  { id: 9648, name: "Mystery" },
-  { id: 10763, name: "News" },
-  { id: 10764, name: "Reality" },
-  { id: 10765, name: "Sci-Fi & Fantasy" },
-  { id: 10766, name: "Soap" },
-  { id: 10767, name: "Talk" },
-  { id: 10768, name: "War & Politics" },
-  { id: 37, name: "Western" },
-];
-
-const mediaType = ref("movie");
-const genre = ref("");
-const sortBy = ref("popularity.desc");
-const era = ref("");
-const search = ref("");
-
+const router = useRouter();
+const mediaType = computed(() => (route.query.media === "tv" ? "tv" : "movie"));
 const genres = computed(() => (mediaType.value === "tv" ? tvGenres : movieGenres));
-
-// TV uses different sort/date field names than movies
-const dateKey = () => (mediaType.value === "tv" ? "first_air_date" : "primary_release_date");
-const sortParam = () =>
-  mediaType.value === "tv" && sortBy.value === "primary_release_date.desc" ? "first_air_date.desc" : sortBy.value;
-
-// Date-window params for the era filter; spread after the sort presets so
-// they override overlapping date/vote-count keys
-const eraParams = () => {
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const year = now.getFullYear();
-  const daysFromNow = (days) => new Date(now.getTime() + days * 86400000).toISOString().slice(0, 10);
-
-  switch (era.value) {
-    case "":
-      return {};
-    case "now_playing":
-      // Movies: theatrical releases from the last ~6 weeks. TV: episodes airing recently
-      return mediaType.value === "tv"
-        ? { "air_date.gte": daysFromNow(-30), "air_date.lte": today }
-        : { with_release_type: "2|3", "release_date.gte": daysFromNow(-45), "release_date.lte": today };
-    case "upcoming":
-      // Unreleased titles have few votes, so drop the sort presets' floors
-      return {
-        [`${dateKey()}.gte`]: daysFromNow(1),
-        [`${dateKey()}.lte`]: daysFromNow(365),
-        "vote_count.gte": 0,
-      };
-    case "this_year":
-      return { [`${dateKey()}.gte`]: `${year}-01-01`, [`${dateKey()}.lte`]: today };
-    case "last_5":
-      return { [`${dateKey()}.gte`]: `${year - 5}-01-01`, [`${dateKey()}.lte`]: today };
-    case "older":
-      return { [`${dateKey()}.lte`]: "1979-12-31" };
-    default: {
-      const start = parseInt(era.value, 10);
-      return { [`${dateKey()}.gte`]: `${start}-01-01`, [`${dateKey()}.lte`]: `${start + 9}-12-31` };
-    }
-  }
-};
-const movies = ref(null);
-const page = ref(1);
-const totalPages = ref(0);
-
-// The open title lives in the URL (?movie=<id>&type=tv) so details are deep-linkable
-const selectedMovieId = computed(() => route.query.movie);
-const selectedType = computed(() => (route.query.type === "tv" ? "tv" : "movie"));
-
-const openMovie = (id) => {
-  router.push({
-    query: { ...route.query, movie: id, ...(mediaType.value === "tv" && { type: "tv" }) },
-  });
-};
-
-const closeMovie = () => {
-  const { movie, type, ...query } = route.query;
-  router.push({ query });
-};
-
-const isLoading = ref(false);
-const error = ref(null);
-
-// Sort/genre params only apply to discover; search ignores them
-const currentParams = computed(() => ({
-  api_key: TMDB_API_KEY,
-  region: "US",
-  language: "en",
-  include_adult: false,
-  page: page.value,
-  ...(search.value
-    ? { query: search.value }
-    : {
-        sort_by: sortParam(),
-        ...(genre.value && { with_genres: genre.value }),
-        // Vote-count floors keep obscure/unrated entries from dominating these sorts
-        ...(sortBy.value === "vote_average.desc" && { "vote_count.gte": 200 }),
-        ...(sortBy.value === "primary_release_date.desc" && {
-          [`${dateKey()}.lte`]: new Date().toISOString().slice(0, 10),
-          "vote_count.gte": 10,
-        }),
-        ...eraParams(),
-      }),
-}));
-
-const getMovies = async () => {
-  const endpoint = `${search.value ? "search" : "discover"}/${mediaType.value}`;
-  error.value = null;
-  isLoading.value = true;
-
-  try {
-    const response = await axios.get(`${TMDB_BASE_URL}/${endpoint}`, {
-      params: currentParams.value,
-    });
-    movies.value = response.data;
-    // TMDB rejects requests beyond page 500; floor of 1 avoids showing "1 / 0" on empty results
-    totalPages.value = Math.min(Math.max(response.data.total_pages, 1), 500);
-  } catch (err) {
-    error.value = err.response?.data?.status_message || "Failed to load movies. Please try again.";
-    movies.value = null;
-  } finally {
-    isLoading.value = false;
-  }
-};
-
+const genre = computed(() =>
+  genres.value.some((item) => String(item.id) === route.query.genre) ? route.query.genre : ""
+);
+const sortBy = computed(() =>
+  discoverySortOptions.some((option) => option.value === route.query.sort)
+    ? route.query.sort
+    : route.query.collection === "top_rated"
+    ? "vote_average.desc"
+    : "popularity.desc"
+);
+const votes = computed(() =>
+  minimumVotesOptions.some((option) => option.value === route.query.votes) ? route.query.votes : "auto"
+);
+const minimumVotes = computed(() => minimumVotesFor(sortBy.value, votes.value, era.value));
+const eras = [
+  { value: "", label: "Any time" },
+  { value: "now_playing", label: "Now playing / airing" },
+  { value: "upcoming", label: "Coming soon" },
+  { value: "this_year", label: "This year" },
+  { value: "last_5", label: "Last 5 years" },
+  ...["2020s", "2010s", "2000s", "1990s", "1980s"].map((value) => ({ value, label: value })),
+  { value: "older", label: "Before 1980" },
+];
+const era = computed(() => (eras.some((item) => item.value === route.query.era) ? route.query.era : ""));
+const collection = computed(() =>
+  ["trending", "top_rated"].includes(route.query.collection) ? route.query.collection : ""
+);
+const query = computed(() => (typeof route.query.q === "string" ? route.query.q.trim() : ""));
+const search = ref(query.value);
+const page = computed(() => Math.min(500, Math.max(1, Math.floor(Number(route.query.page)) || 1)));
+const movies = ref([]);
+const totalPages = ref(1);
+const totalResults = ref(0);
+const loading = ref(true);
+const error = ref(false);
+const filtersOpen = ref(false);
+const resultsHeading = ref(null);
+const filterCount = computed(
+  () => Number(!!genre.value) + Number(!!era.value) + Number(votes.value !== "auto")
+);
+const showingCollection = computed(
+  () => collection.value === "trending" && !filterCount.value && sortBy.value === "popularity.desc"
+);
+const sortOptions = computed(() => [
+  ...(showingCollection.value
+    ? [
+        {
+          value: collection.value,
+          label: "Trending this week",
+        },
+      ]
+    : []),
+  ...discoverySortOptions,
+]);
+const genreOptions = computed(() =>
+  genres.value.map((g) => ({ value: String(g.id), label: g.id ? g.name : "All genres" }))
+);
+const heading = computed(() =>
+  query.value
+    ? `Results for “${query.value}”`
+    : showingCollection.value && collection.value === "trending"
+    ? "Trending this week."
+    : sortBy.value === "vote_average.desc"
+    ? "The audience favorites."
+    : sortBy.value === "vote_count.desc"
+    ? "The most rated. Ever."
+    : "Find your next favorite."
+);
+const rankingNote = computed(() => {
+  if (query.value) return "Search matches ordered by relevance. Scores and rating counts come from TMDB.";
+  if (showingCollection.value) return "Trending on TMDB over the past week.";
+  const descriptions = {
+    "popularity.desc": "TMDB popularity: recent activity, release timing, and total votes.",
+    "vote_count.desc":
+      "Most TMDB ratings across all years, within your filters. More ratings means more participation, not a higher score.",
+    "vote_average.desc": "Highest TMDB audience scores.",
+    "vote_average.asc": "Lowest TMDB audience scores.",
+    "primary_release_date.desc": "Newest release dates first.",
+    "primary_release_date.asc": "Oldest release dates first.",
+  };
+  return `${descriptions[sortBy.value]} ${
+    minimumVotes.value
+      ? `At least ${minimumVotes.value.toLocaleString()} ratings per title.`
+      : "No minimum rating count."
+  }`;
+});
+let controller;
 let searchTimer;
+let version = 0;
 
-const newSearch = () => {
+const updateQuery = (updates, replace = false) => {
   clearTimeout(searchTimer);
-  page.value = 1;
-  getMovies();
+  const next = { ...route.query, ...updates };
+  for (const key of Object.keys(next)) if (next[key] === "" || next[key] == null) delete next[key];
+  if (router.resolve({ query: next }).fullPath === route.fullPath) {
+    search.value = query.value;
+    return load();
+  }
+  return router[replace ? "replace" : "push"]({ query: next });
 };
-
+const load = async () => {
+  controller?.abort();
+  controller = new AbortController();
+  const requestVersion = ++version;
+  loading.value = true;
+  error.value = false;
+  const type = mediaType.value;
+  let endpoint = `/discover/${type}`;
+  let params = { page: page.value, region: "US" };
+  if (query.value) {
+    endpoint = `/search/${type}`;
+    params.query = query.value;
+  } else if (showingCollection.value) {
+    endpoint = `/trending/${type}/week`;
+  } else {
+    params = {
+      ...params,
+      ...discoveryParams({
+        mediaType: type,
+        sort: sortBy.value,
+        genre: genre.value,
+        era: era.value,
+        votes: votes.value,
+      }),
+    };
+  }
+  try {
+    const data = await getTitles(endpoint, params, controller.signal);
+    if (version !== requestVersion) return;
+    movies.value = data.results.filter((item) => !item.adult);
+    totalPages.value = Math.min(500, Math.max(1, data.total_pages));
+    totalResults.value = data.total_results;
+  } catch (err) {
+    if (version === requestVersion && !isCancelled(err)) {
+      error.value = true;
+      movies.value = [];
+    }
+  } finally {
+    if (version === requestVersion) loading.value = false;
+  }
+};
+const submitSearch = async () => {
+  clearTimeout(searchTimer);
+  const term = search.value.trim();
+  if (term === query.value && page.value === 1) return load();
+  await updateQuery({ q: term, page: null }, true);
+};
 const queueSearch = () => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(newSearch, 450);
+  controller?.abort();
+  version++;
+  loading.value = true;
+  error.value = false;
+  searchTimer = setTimeout(submitSearch, 300);
 };
-
 const setMediaType = (type) => {
-  if (mediaType.value === type) return;
-  mediaType.value = type;
-  genre.value = ""; // genre ids differ between movies and TV
   search.value = "";
-  newSearch();
+  updateQuery({ media: type === "movie" ? null : type, genre: null, page: null, q: null });
 };
-
-// The search endpoint ignores genre/sort/era, so changing them exits search mode
-const selectGenre = (id) => {
-  genre.value = id;
+const setFilter = (name, value) =>
+  updateQuery({ sort: sortBy.value, [name]: value, page: null, collection: null });
+const reset = () => {
   search.value = "";
-  newSearch();
+  updateQuery({ q: null, genre: null, era: null, sort: null, votes: null, collection: null, page: null });
 };
-
-const onFilterChange = () => {
-  search.value = "";
-  newSearch();
+const navigate = async (direction) => {
+  await updateQuery({ page: Math.min(totalPages.value, Math.max(1, page.value + direction)) });
+  await nextTick();
+  resultsHeading.value?.scrollIntoView({ block: "start" });
 };
-
-const navigate = (direction) => {
-  page.value = Math.max(1, Math.min(page.value + direction, totalPages.value));
-  window.scrollTo(0, 0);
-  getMovies();
-};
-
-// Initial load
-onMounted(() => {
-  getMovies();
+watch(
+  () =>
+    JSON.stringify([
+      mediaType.value,
+      genre.value,
+      sortBy.value,
+      era.value,
+      votes.value,
+      collection.value,
+      query.value,
+      page.value,
+    ]),
+  () => {
+    clearTimeout(searchTimer);
+    search.value = query.value;
+    load();
+  },
+  { immediate: true }
+);
+onUnmounted(() => {
+  clearTimeout(searchTimer);
+  controller?.abort();
+  version++;
 });
 </script>
-
 <template>
-  <main class="browse-view">
-    <header class="header">
-      <div class="nav-bar">
-        <h1 class="website-title">123A-Movies</h1>
-        <div class="nav-actions">
-          <button class="nav-pill" @click="router.push('/watchlist')">
-            Watchlist
-            <span v-if="store.watchlistCount" class="count-badge">{{ store.watchlistCount }}</span>
+  <main id="main-content" class="container browse-view" tabindex="-1">
+    <div class="browse-intro">
+      <p class="eyebrow">THE NEXT STORY STARTS HERE</p>
+      <h1>{{ heading }}</h1>
+      <p class="muted">Explore a whole world of movies and TV.</p>
+    </div>
+    <div class="browse-controls">
+      <form class="search-form" role="search" @submit.prevent="submitSearch">
+        <Icon name="search" :size="20" /><input
+          v-model="search"
+          type="search"
+          :placeholder="mediaType === 'tv' ? 'Search TV shows…' : 'Search movies…'"
+          :aria-label="mediaType === 'tv' ? 'Search TV shows' : 'Search movies'"
+          @input="queueSearch"
+        /><button type="submit" class="search-submit icon-button" aria-label="Submit search">
+          <Icon name="arrow" :size="18" />
+        </button>
+      </form>
+      <div class="browse-options">
+        <div class="media-toggle" aria-label="Title type">
+          <button
+            :aria-pressed="mediaType === 'movie'"
+            :class="{ active: mediaType === 'movie' }"
+            @click="setMediaType('movie')"
+          >
+            Movies</button
+          ><button
+            :aria-pressed="mediaType === 'tv'"
+            :class="{ active: mediaType === 'tv' }"
+            @click="setMediaType('tv')"
+          >
+            TV shows
           </button>
-          <button class="nav-pill" @click="router.push('/history')">History</button>
-          <UserMenu />
         </div>
-      </div>
-      <div class="toolbar">
-        <div class="media-toggle">
-          <button :class="{ active: mediaType === 'movie' }" @click="setMediaType('movie')">Movies</button>
-          <button :class="{ active: mediaType === 'tv' }" @click="setMediaType('tv')">TV Shows</button>
-        </div>
-        <div class="search-group">
-          <input
-            type="search"
-            :placeholder="mediaType === 'tv' ? 'Search TV shows...' : 'Search movies...'"
-            aria-label="Search"
-            v-model="search"
-            @input="queueSearch"
-            @keyup.enter="newSearch"
-          />
-          <button class="search-btn" @click="newSearch" :disabled="isLoading">
-            {{ isLoading ? "..." : "Search" }}
-          </button>
-        </div>
-        <div class="filter-group">
-          <select v-model="sortBy" @change="onFilterChange" aria-label="Sort by">
-            <option value="popularity.desc">Most Popular</option>
-            <option value="vote_average.desc">Top Rated</option>
-            <option value="primary_release_date.desc">Newest</option>
-          </select>
-          <select v-model="era" @change="onFilterChange" aria-label="Filter by release date">
-            <option value="">Any Year</option>
-            <option value="now_playing">Now Playing</option>
-            <option value="upcoming">Coming Soon</option>
-            <option value="this_year">This Year</option>
-            <option value="last_5">Last 5 Years</option>
-            <option value="2020s">2020s</option>
-            <option value="2010s">2010s</option>
-            <option value="2000s">2000s</option>
-            <option value="1990s">1990s</option>
-            <option value="1980s">1980s</option>
-            <option value="older">Before 1980</option>
-          </select>
-        </div>
-        <div class="pagination">
-          <button @click="navigate(-1)" :disabled="page === 1 || isLoading">&lsaquo;</button>
-          <span>{{ page }} / {{ totalPages }}</span>
-          <button @click="navigate(1)" :disabled="page >= totalPages || isLoading">&rsaquo;</button>
-        </div>
-      </div>
-      <div class="genre-row">
         <button
-          v-for="g in genres"
-          :key="g.id"
-          class="chip"
-          :class="{ active: genre === g.id }"
-          @click="selectGenre(g.id)"
+          class="button filter-button"
+          :class="{ selected: filtersOpen || filterCount }"
+          :aria-expanded="filtersOpen"
+          aria-controls="browse-filters"
+          @click="filtersOpen = !filtersOpen"
         >
-          {{ g.name }}
+          <Icon name="sliders" :size="17" /> Filters
+          <span v-if="filterCount" class="filter-count">{{ filterCount }}</span>
         </button>
       </div>
-    </header>
-
-    <!-- Error Message -->
-    <div v-if="error" class="error-message">
-      {{ error }}
-      <button @click="getMovies" class="retry-button">Try Again</button>
     </div>
-
-    <!-- Loading State -->
-    <div v-if="isLoading" class="loading-container">
-      <div v-for="n in 10" :key="n" class="loading-tile">
-        <div class="loading-animation"></div>
-      </div>
+    <div v-if="filtersOpen" id="browse-filters" class="filter-panel">
+      <p v-if="query" class="filter-notice">
+        Filters apply when exploring.
+        <button
+          class="text-link"
+          @click="
+            search = '';
+            submitSearch();
+          "
+        >
+          Clear search to use filters
+        </button>
+      </p>
+      <fieldset :disabled="!!query">
+        <legend class="sr-only">Filter titles</legend>
+        <div class="filter-field">
+          <span>Release date</span>
+          <AppSelect
+            :model-value="era"
+            :options="eras"
+            :disabled="!!query"
+            label="Release date"
+            @update:model-value="setFilter('era', $event)"
+          />
+        </div>
+        <div class="filter-field">
+          <span>Genre</span>
+          <AppSelect
+            :model-value="genre"
+            :options="genreOptions"
+            :disabled="!!query"
+            label="Genre"
+            @update:model-value="setFilter('genre', $event)"
+          />
+        </div>
+        <div class="filter-field">
+          <span>Minimum ratings</span>
+          <AppSelect
+            :model-value="votes"
+            :options="minimumVotesOptions"
+            :disabled="!!query"
+            label="Minimum ratings"
+            @update:model-value="setFilter('votes', $event)"
+          />
+        </div>
+      </fieldset>
+      <button class="text-link" @click="reset">Reset filters</button>
     </div>
-
-    <!-- Movies Grid -->
-    <div v-else-if="movies?.results?.length" class="tiles">
-      <div
-        v-for="movie in movies.results"
-        :key="movie.id"
-        class="tile"
-        role="button"
-        tabindex="0"
-        :aria-label="movie.title || movie.name"
-        @click="openMovie(movie.id)"
-        @keydown.enter="openMovie(movie.id)"
-        @keydown.space.prevent="openMovie(movie.id)"
+    <div v-if="!query" class="genre-row" aria-label="Genres">
+      <button
+        v-for="g in genres"
+        :key="g.id"
+        class="genre-chip"
+        :class="{ active: String(genre) === String(g.id) }"
+        :aria-pressed="String(genre) === String(g.id)"
+        @click="setFilter('genre', String(g.id))"
       >
-        <img
-          v-if="movie.poster_path"
-          :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
-          :alt="movie.title || movie.name"
-          loading="lazy"
+        {{ g.id ? g.name : "All genres" }}
+      </button>
+    </div>
+    <div ref="resultsHeading" class="results-heading">
+      <h2>
+        {{
+          query
+            ? "Search results"
+            : showingCollection && collection === "trending"
+            ? "This week’s favorites"
+            : sortBy === "vote_average.desc"
+            ? "Audience favorites"
+            : genre
+            ? genres.find((g) => String(g.id) === genre)?.name
+            : "All titles"
+        }}<span v-if="!loading && !error">{{ totalResults.toLocaleString() }}</span>
+      </h2>
+      <div v-if="!query" class="browse-sort">
+        <span>Sort by</span>
+        <AppSelect
+          :model-value="showingCollection ? collection : sortBy"
+          :options="sortOptions"
+          label="Sort titles"
+          @update:model-value="
+            discoverySortOptions.some((option) => option.value === $event) && setFilter('sort', $event)
+          "
         />
-        <div v-else class="poster-placeholder">
-          <div class="poster-placeholder-content">
-            <div class="movie-title">{{ movie.title || movie.name }}</div>
-            <div class="release-date" v-if="movie.release_date || movie.first_air_date">
-              {{ new Date(movie.release_date || movie.first_air_date).getFullYear() }}
-            </div>
-          </div>
+      </div>
+      <span v-else class="page-info">Ordered by relevance</span>
+    </div>
+    <div class="ranking-context">
+      <p class="sort-note">{{ rankingNote }}</p>
+      <details class="ranking-guide">
+        <summary>How rankings work</summary>
+        <div>
+          <p>
+            <strong>Popular right now</strong> uses TMDB’s popularity score, which combines recent attention
+            with longer-term activity. The weekly trending collection is a separate chart.
+          </p>
+          <p>
+            <strong>Most rated — all time</strong> orders titles by their total number of TMDB ratings. It’s a
+            measure of audience participation, not how many people liked a title or watched it.
+          </p>
+          <p>
+            <strong>Highest / lowest rated</strong> orders by the TMDB audience score, with at least 1,000
+            ratings by default. Change Minimum ratings in Filters to include smaller audiences or require more
+            votes. This is a score sort with a vote threshold, not a separate weighted chart.
+          </p>
+          <p>
+            <strong>Why it differs from IMDb:</strong> these scores come from TMDB voters. IMDb has a
+            different voter community and uses its own weighting for its charts. Your personal star ratings
+            stay separate.
+          </p>
+          <p class="ranking-sources">
+            <a
+              href="https://developer.themoviedb.org/docs/popularity-and-trending"
+              target="_blank"
+              rel="noopener noreferrer"
+              >TMDB’s ranking guide <span class="sr-only">(opens a new tab)</span></a
+            ><a
+              href="https://help.imdb.com/article/imdb/track-movies-tv/faq-for-imdb-ratings/G67Y87TFYYP6TWAV"
+              target="_blank"
+              rel="noopener noreferrer"
+              >IMDb’s ratings guide <span class="sr-only">(opens a new tab)</span></a
+            >
+          </p>
         </div>
-        <span v-if="movie.vote_average" class="tile-rating">&#9733; {{ movie.vote_average.toFixed(1) }}</span>
-        <div class="tile-overlay">
-          <div class="tile-title">{{ movie.title || movie.name }}</div>
-          <div class="tile-year" v-if="movie.release_date || movie.first_air_date">
-            {{ new Date(movie.release_date || movie.first_air_date).getFullYear() }}
-          </div>
-        </div>
+      </details>
+    </div>
+    <div class="sr-only" role="status">
+      {{ loading ? "Loading titles" : error ? "Could not load titles" : `${totalResults} titles found` }}
+    </div>
+    <div v-if="error" class="empty-state">
+      <Icon name="film" />
+      <h2>A brief intermission.</h2>
+      <p>We couldn’t load these titles. Check your connection and try again.</p>
+      <button class="button primary" @click="load">Try again</button>
+    </div>
+    <div v-else-if="loading" class="movie-grid" aria-label="Loading titles" aria-busy="true">
+      <div v-for="n in 12" :key="n">
+        <div class="skeleton-poster"></div>
+        <div class="skeleton-text"></div>
       </div>
     </div>
-
-    <!-- No Results -->
-    <div v-else-if="movies && !movies.results?.length" class="no-results">
-      No results found. Try different search terms or filters.
+    <div v-else-if="movies.length" class="movie-grid">
+      <MovieCard v-for="movie in movies" :key="`${mediaType}-${movie.id}`" :movie="movie" :type="mediaType" />
     </div>
-
-    <Modal
-      v-if="selectedMovieId"
-      :id="selectedMovieId"
-      :type="selectedType"
-      :key="selectedMovieId + selectedType"
-      @toggleModal="closeMovie"
-    />
+    <div v-else class="empty-state">
+      <Icon name="search" />
+      <h2>No matches this time.</h2>
+      <p>Try another title or give your filters a little more room.</p>
+      <button class="button" @click="reset">Explore all titles</button>
+    </div>
+    <nav v-if="!error && totalPages > 1" class="pagination" aria-label="Result pages">
+      <button class="button quiet" :disabled="page === 1 || loading" @click="navigate(-1)">
+        <Icon name="left" :size="17" /> Previous</button
+      ><span
+        >{{ page }} <span class="muted">/ {{ totalPages }}</span></span
+      ><button class="button quiet" :disabled="page >= totalPages || loading" @click="navigate(1)">
+        Next <Icon name="right" :size="17" />
+      </button>
+    </nav>
   </main>
+  <Footer />
 </template>
-
 <style scoped>
 .browse-view {
-  min-height: 100vh;
+  padding-block: 3.5rem 1rem;
+  min-height: 70vh;
 }
-
-/* === Header === */
-.header {
-  background: rgba(13, 13, 31, 0.9);
-  backdrop-filter: blur(12px);
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  border-bottom: 1px solid var(--border);
+.browse-intro h1 {
+  font-size: clamp(2rem, 3.5vw, 3.2rem);
+  margin-block: 1rem 0.8rem;
+  overflow-wrap: anywhere;
 }
-
-.nav-bar {
+.browse-intro > .muted {
+  font-size: 0.9rem;
+}
+.browse-controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.5rem;
+  gap: 1.5rem;
+  margin-top: 2.3rem;
 }
-
-.website-title {
+.search-form {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex: 1;
+  max-width: 580px;
+  padding: 3px 4px 3px 16px;
+  border: 1px solid var(--border);
+  background: #141821;
+  border-radius: 9px;
+  color: var(--text-muted);
+}
+.search-form:focus-within {
+  border-color: var(--accent);
+}
+.search-form input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: none;
+  min-height: 44px;
+  padding: 0.4rem 0;
   color: white;
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-.nav-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.nav-pill {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
   font-size: 0.85rem;
-  font-weight: 500;
-  color: white;
-  transition: background-color 0.2s;
-  background-color: rgba(255, 255, 255, 0.1);
-  position: relative;
+  outline: none;
 }
-
-.nav-pill:hover {
-  background-color: rgba(255, 255, 255, 0.18);
+.search-form input::placeholder {
+  color: var(--text-muted);
 }
-
-.count-badge {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  background-color: var(--accent-strong);
-  color: white;
-  font-size: 0.65rem;
-  font-weight: bold;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.search-submit {
+  width: 40px;
+  height: 44px;
+  border-radius: 6px;
+  background: transparent;
 }
-
-/* === Toolbar === */
-.toolbar {
+.browse-options {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 1.5rem 0.75rem;
-  flex-wrap: wrap;
-}
-
-.media-toggle {
-  display: flex;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.media-toggle button {
-  padding: 0.55rem 1rem;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
-  transition:
-    background-color 0.15s,
-    color 0.15s;
-}
-
-.media-toggle button.active {
-  background: var(--accent-strong);
-  color: white;
-}
-
-.search-group {
-  display: flex;
-  flex: 1;
-  min-width: 200px;
-  max-width: 400px;
-}
-
-.search-group input {
-  flex: 1;
-  padding: 0.55rem 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-right: none;
-  border-radius: 6px 0 0 6px;
-  background: rgba(255, 255, 255, 0.06);
-  color: white;
-  font-size: 0.9rem;
-}
-
-.search-group input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
-}
-
-.search-group input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.search-btn {
-  padding: 0.55rem 1rem;
-  border-radius: 0 6px 6px 0;
-  background: var(--accent-strong);
-  color: white;
-  font-weight: 600;
-  font-size: 0.85rem;
-  transition: filter 0.2s;
-}
-
-.search-btn:hover:not(:disabled) {
-  filter: brightness(1.15);
-}
-
-.search-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.filter-group {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.filter-group select {
-  padding: 0.55rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  color: white;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.filter-group select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.filter-group select option {
-  background: var(--bg-elevated);
-  color: white;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   margin-left: auto;
 }
-
-.pagination span {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.85rem;
-  min-width: 3.5rem;
-  text-align: center;
-}
-
-.pagination button {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
-  font-size: 1.1rem;
+.media-toggle {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 4px;
 }
-
-.pagination button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
+.media-toggle button {
+  min-height: 40px;
+  padding: 0.5rem 1.05rem;
+  background: none;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-radius: 6px;
+  white-space: nowrap;
 }
-
-.pagination button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+.media-toggle button.active {
+  background: #293244;
+  color: white;
 }
-
-/* === Genre Chips === */
+.filter-button {
+  min-height: 50px;
+  background: none;
+  font-size: 0.8rem;
+}
+.filter-button.selected {
+  border-color: #99bbff66;
+  color: #b3cdff;
+}
+.filter-count {
+  background: var(--accent-soft);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.35rem;
+}
+.filter-panel {
+  padding: 1.3rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 1rem;
+}
+.filter-panel fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+.filter-field {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.filter-panel fieldset:disabled {
+  opacity: 0.4;
+}
+.filter-notice {
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+}
+.filter-notice button {
+  color: var(--accent);
+}
+.filter-panel > .text-link {
+  font-size: 0.75rem;
+  margin-top: 1rem;
+}
 .genre-row {
   display: flex;
   gap: 0.5rem;
-  padding: 0 1.5rem 0.75rem;
+  padding-block: 1.3rem;
   overflow-x: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: #343b4a transparent;
 }
-
-.genre-row::-webkit-scrollbar {
-  display: none;
-}
-
-.chip {
+.genre-chip {
   flex-shrink: 0;
-  padding: 0.35rem 0.85rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
+  min-height: 36px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 30px;
   color: var(--text-secondary);
-  font-size: 0.82rem;
-  font-weight: 500;
-  transition:
-    background-color 0.15s,
-    color 0.15s;
-}
-
-.chip:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: white;
-}
-
-.chip.active {
-  background: var(--accent-strong);
-  color: white;
-}
-
-/* === Movie Grid === */
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-}
-
-.tile {
-  position: relative;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
-}
-
-.tile:hover {
-  transform: scale(1.04);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-}
-
-.tile img {
-  width: 100%;
-  aspect-ratio: 2/3;
-  object-fit: cover;
-}
-
-.tile-rating {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  color: #fbbf24;
+  border: 1px solid var(--border);
+  background: none;
   font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
 }
-
-.tile-overlay {
-  position: absolute;
-  inset: 0;
+.genre-chip.active {
+  background: #e7edf8;
+  color: #172036;
+  border-color: transparent;
+}
+.results-heading {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 0.85rem;
-  background: linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.85) 100%);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.tile:hover .tile-overlay {
-  opacity: 1;
-}
-
-.tile-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.tile-year {
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  margin-top: 0.15rem;
-}
-
-.poster-placeholder {
-  aspect-ratio: 2/3;
-  width: 100%;
-  background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
-  position: relative;
-  overflow: hidden;
-}
-
-.poster-placeholder-content {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 1rem;
-  text-align: center;
-}
-
-.movie-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin-bottom: 0.4rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.release-date {
-  font-size: 0.8rem;
-  opacity: 0.6;
-}
-
-/* === Loading === */
-.loading-container {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.5rem;
+  align-items: center;
+  margin-block: 1.3rem 1.6rem;
+  scroll-margin-top: calc(var(--header-height) + 20px);
 }
-
-.loading-tile {
-  aspect-ratio: 2/3;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 8px;
-  overflow: hidden;
+.results-heading h2 {
+  font-family: "DM Sans", sans-serif;
+  font-size: 1rem;
+  font-weight: 550;
 }
-
-.loading-animation {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.04) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+.results-heading h2 span {
+  margin-left: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 400;
 }
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.page-info {
+  font-size: 0.7rem;
+  color: var(--text-muted);
 }
-
-/* === States === */
-.error-message {
-  margin: 2rem auto;
-  padding: 1rem 1.5rem;
-  background-color: rgba(255, 85, 85, 0.15);
-  border: 1px solid rgba(255, 85, 85, 0.3);
-  color: #ff8a8a;
-  border-radius: 8px;
-  text-align: center;
-  max-width: 500px;
+.browse-sort {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 290px;
+  flex-shrink: 0;
 }
-
-.retry-button {
-  margin-left: 1rem;
-  padding: 0.4rem 1rem;
-  background-color: rgba(255, 85, 85, 0.2);
-  color: #ff8a8a;
-  border: 1px solid rgba(255, 85, 85, 0.3);
-  border-radius: 4px;
+.browse-sort > span {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.ranking-context {
+  margin: -0.65rem 0 1.5rem;
+}
+.sort-note {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+.ranking-guide {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+}
+.ranking-guide summary {
+  width: fit-content;
+  padding-block: 0.5rem;
+  color: var(--accent);
   cursor: pointer;
-  transition: background-color 0.2s;
 }
-
-.retry-button:hover {
-  background-color: rgba(255, 85, 85, 0.3);
+.ranking-guide > div {
+  margin-top: 0.5rem;
+  padding: 1.25rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
 }
-
-.no-results {
-  text-align: center;
-  padding: 4rem 2rem;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 1.1rem;
+.ranking-guide p {
+  line-height: 1.8;
+  color: var(--text-secondary);
+  max-width: 95ch;
 }
-
-/* === Responsive === */
-@media screen and (max-width: 1200px) {
-  .tiles,
-  .loading-container {
-    grid-template-columns: repeat(4, 1fr);
+.ranking-guide p + p {
+  margin-top: 0.65rem;
+}
+.ranking-guide strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.ranking-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.ranking-sources a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding-top: 3rem;
+  font-size: 0.8rem;
+}
+@media (max-width: 800px) {
+  .browse-controls {
+    flex-wrap: wrap;
+    gap: 0.8rem;
   }
-}
-
-@media screen and (max-width: 900px) {
-  .tiles,
-  .loading-container {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .toolbar {
-    padding: 0.5rem 1rem 0.75rem;
-  }
-
-  .search-group {
+  .search-form {
+    flex-basis: 100%;
     max-width: none;
   }
+  .browse-options {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
 }
-
-@media screen and (max-width: 600px) {
-  .tiles,
-  .loading-container {
-    grid-template-columns: repeat(2, 1fr);
-    padding: 0.75rem;
+@media (max-width: 700px) {
+  .browse-view {
+    padding-top: 2rem;
   }
-
-  .nav-bar {
-    padding: 0.6rem 1rem;
+  .browse-intro h1 {
+    font-size: 2rem;
   }
-
-  .toolbar {
-    padding: 0.5rem 1rem 0.6rem;
-    gap: 0.5rem;
+  .browse-intro .eyebrow {
+    font-size: 0.58rem;
   }
-
+  .browse-intro > .muted {
+    font-size: 0.8rem;
+  }
+  .browse-controls {
+    margin-top: 1.5rem;
+  }
   .genre-row {
-    padding: 0 1rem 0.6rem;
+    padding-block: 1rem;
   }
-
-  .search-group {
-    min-width: 0;
-    flex-basis: 100%;
+  .genre-chip {
+    min-height: 44px;
   }
-
-  .filter-group {
-    flex: 1;
+  .filter-panel fieldset {
+    grid-template-columns: 1fr;
   }
-
-  .filter-group select {
-    flex: 1;
-    min-width: 0;
+  .filter-button {
+    min-height: 48px;
+  }
+  .media-toggle button {
+    min-height: 38px;
+  }
+  .results-heading {
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .browse-sort {
+    width: 100%;
+  }
+  .pagination {
+    gap: 0.5rem;
   }
 }
 </style>

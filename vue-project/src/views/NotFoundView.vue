@@ -1,52 +1,33 @@
 <script setup>
-import { useRouter } from "vue-router";
-
-const router = useRouter();
+import Icon from "../components/Icon.vue";
 </script>
-
 <template>
-  <main>
-    <h1>404</h1>
-    <p>This page doesn't exist.</p>
-    <button @click="router.push('/')">Go Home</button>
+  <main id="main-content" class="container not-found" tabindex="-1">
+    <p class="eyebrow">404 · SCENE NOT FOUND</p>
+    <h1>This story took a turn.</h1>
+    <p>The page you’re looking for isn’t here. There are plenty of good stories that are.</p>
+    <RouterLink class="button primary" to="/browse"
+      >Back to exploring <Icon name="arrow" :size="18"
+    /></RouterLink>
   </main>
 </template>
-
 <style scoped>
-main {
+.not-found {
+  min-height: 75dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  gap: 1.5rem;
   text-align: center;
-  gap: 1rem;
 }
-
 h1 {
-  font-size: 6rem;
-  font-weight: 800;
-  line-height: 1;
-  color: rgba(255, 255, 255, 0.15);
+  font-size: clamp(2rem, 5vw, 4rem);
 }
-
-p {
-  font-size: 1.2rem;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-button {
-  margin-top: 1rem;
-  padding: 0.75rem 2rem;
-  background: var(--accent-strong);
-  color: white;
-  border-radius: var(--radius-sm);
-  font-size: 1rem;
-  font-weight: 600;
-  transition: filter 0.2s;
-}
-
-button:hover {
-  filter: brightness(1.15);
+p:not(.eyebrow) {
+  max-width: 430px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  font-size: 0.9rem;
 }
 </style>

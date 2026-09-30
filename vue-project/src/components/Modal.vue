@@ -1,586 +1,653 @@
 <script setup>
-import axios from "axios";
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 import { useStore } from "../store";
-import { ref, onMounted, computed } from "vue";
-
-import { onUnmounted } from "vue";
-
+import { getTitles, isCancelled } from "../lib/tmdb";
+import { imageUrl, titleOf, yearOf, libraryItem, mediaKey } from "../lib/media";
+import { useTitleNavigation } from "../composables/useTitleNavigation";
+import Icon from "./Icon.vue";
+import AudienceRating from "./AudienceRating.vue";
+import StarRating from "./StarRating.vue";
+import Toasts from "./Toasts.vue";
+const props = defineProps({ id: String, type: { type: String, default: "movie" } });
+const emit = defineEmits(["close"]);
 const store = useStore();
-const props = defineProps(["id", "type"]);
-const emit = defineEmits(["toggleModal"]);
-const isTV = props.type === "tv";
+const { signIn } = useTitleNavigation();
+const dialog = ref(null);
 const movie = ref(null);
-const isLoadingDetails = ref(true);
-const closeBtn = ref(null);
-
-// Open already knowing whether this title is saved or watched
-// (route query ids are strings; stored ids are numbers)
-const matchesThis = (item) =>
-  item.id === Number(props.id) && (item.media_type || "movie") === (isTV ? "tv" : "movie");
-const saved = ref(
-  store.watchlist.some(matchesThis) ? "duplicate" : store.watchHistory.some(matchesThis) ? "watched" : false,
-);
-
-// Lock body scroll while modal is open (including touch devices)
-const scrollY = window.scrollY;
-document.body.style.position = "fixed";
-document.body.style.top = `-${scrollY}px`;
-document.body.style.left = "0";
-document.body.style.right = "0";
-
-const onKeydown = (event) => {
-  if (event.key === "Escape") emit("toggleModal");
-};
-document.addEventListener("keydown", onKeydown);
-
-onUnmounted(() => {
-  document.removeEventListener("keydown", onKeydown);
-  document.body.style.position = "";
-  document.body.style.top = "";
-  document.body.style.left = "";
-  document.body.style.right = "";
-  window.scrollTo(0, scrollY);
+const loading = ref(true);
+const showTrailer = ref(false);
+const trailerPanel = ref(null);
+const brokenPoster = ref(false);
+const busy = computed(() => store.libraryBusy || store.libraryError);
+const item = computed(() => libraryItem(movie.value || { id: props.id }, props.type));
+const saved = computed(() => store.isSaved(item.value));
+const watched = computed(() => store.watchHistory.find((entry) => mediaKey(entry) === mediaKey(item.value)));
+const trailer = computed(() => {
+  const videos = movie.value?.videos?.results || [];
+  return (
+    videos.find((video) => video.site === "YouTube" && video.type === "Trailer" && video.official) ||
+    videos.find((video) => video.site === "YouTube" && video.type === "Trailer")
+  );
 });
-
-const genreNames = computed(() => movie.value?.genres?.map((genre) => genre.name).join(", ") || "");
-
-const formatDate = (date) => {
-  if (!date) return "";
-  return new Date(date).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
-
-const formattedReleaseDate = computed(() => formatDate(movie.value?.displayDate));
-
-const handleAddToWatchlist = async () => {
-  if (!movie.value) return;
-  const m = movie.value;
-  const result = await store.addToWatchlist({
-    id: m.id,
-    media_type: isTV ? "tv" : "movie",
-    title: m.displayTitle,
-    poster: m.poster_path,
-    overview: m.overview,
-    release_date: m.displayDate ?? null,
-    vote_average: m.vote_average,
-    runtime: m.runtime ?? null,
-    seasons: m.number_of_seasons ?? null,
-    genres: m.genres?.map((g) => g.name) || [],
-  });
-  if (result === "added") {
-    saved.value = "duplicate";
-    store.addToast(`Added "${m.displayTitle}" to your watchlist`);
-  } else if (result === "duplicate") {
-    saved.value = "duplicate";
-  }
-  // On "error" the store shows a toast and the button stays active for retry
-};
-
-const handleRemoveFromWatchlist = async () => {
-  const index = store.watchlist.findIndex(matchesThis);
-  if (index === -1 || (await store.removeFromWatchlist(index))) {
-    saved.value = false;
-    store.addToast(`Removed "${movie.value?.displayTitle}" from your watchlist`);
+const runtime = computed(() => {
+  const minutes = movie.value?.runtime;
+  return minutes
+    ? `${Math.floor(minutes / 60) ? `${Math.floor(minutes / 60)}h ` : ""}${
+        minutes % 60 ? `${minutes % 60}m` : ""
+      }`.trim()
+    : "";
+});
+const director = computed(
+  () => movie.value?.credits?.crew?.find((person) => person.job === "Director")?.name
+);
+const money = (value) =>
+  new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(
+    value
+  );
+const releaseDate = computed(() => {
+  const value = movie.value?.release_date || movie.value?.first_air_date;
+  return value
+    ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
+});
+let controller;
+let opener;
+let scrollY = 0;
+let originalBodyStyles;
+let closing = false;
+const close = () => {
+  if (!closing) {
+    closing = true;
+    emit("close");
   }
 };
-
-const handleUnwatch = async () => {
-  const entry = store.watchHistory.find(matchesThis);
-  if (!entry || (await store.removeFromHistory(entry))) {
-    saved.value = false;
-    store.addToast(`Removed "${movie.value?.displayTitle}" from your watch history`);
+const containTab = (event) => {
+  const controls = [
+    ...dialog.value.querySelectorAll("button, a[href], input, select, textarea, summary, iframe, [tabindex]"),
+  ].filter(
+    (element) => element.tabIndex >= 0 && !element.matches(":disabled") && element.getClientRects().length
+  );
+  const first = controls[0];
+  const last = controls.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last?.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first?.focus();
   }
 };
-
-const handleAction = () => {
-  if (saved.value === "duplicate") return handleRemoveFromWatchlist();
-  if (saved.value === "watched") return handleUnwatch();
-  return handleAddToWatchlist();
+const onBackdropClick = (event) => {
+  if (event.target !== dialog.value) return;
+  const bounds = dialog.value.getBoundingClientRect();
+  if (
+    event.clientX < bounds.left ||
+    event.clientX > bounds.right ||
+    event.clientY < bounds.top ||
+    event.clientY > bounds.bottom
+  )
+    close();
 };
-
-onMounted(async () => {
-  closeBtn.value?.focus();
+const load = async () => {
+  controller?.abort();
+  controller = new AbortController();
+  loading.value = true;
   try {
-    const response = await axios.get(`https://api.themoviedb.org/3/${isTV ? "tv" : "movie"}/${props.id}`, {
-      params: {
-        api_key: import.meta.env.VITE_TMDB_API_KEY,
-        region: "US",
-        language: "en",
-        include_adult: false,
-        append_to_response: "credits,release_dates,videos",
-      },
-    });
-    const data = response.data;
-
-    data.displayTitle = data.title || data.name;
-    data.displayDate = data.release_date || data.first_air_date;
-
-    data.mainCast =
-      data.credits?.cast
-        ?.slice(0, 5)
-        .map((actor) => actor.name)
-        .join(", ") || "Data not available";
-
-    data.formattedBudget =
-      data.budget > 1e6
-        ? data.budget.toLocaleString(undefined, {
-            style: "currency",
-            currency: "USD",
-          })
-        : "Data not available";
-
-    data.formattedRevenue =
-      data.revenue > 1e6
-        ? data.revenue.toLocaleString(undefined, {
-            style: "currency",
-            currency: "USD",
-          })
-        : "Data not available";
-
-    const trailer = data.videos?.results.find((video) => video.site === "YouTube" && video.type === "Trailer");
-    data.trailerUrl = trailer ? `https://www.youtube.com/embed/${trailer.key}` : null;
-
-    movie.value = data;
+    movie.value = await getTitles(
+      `/${props.type}/${props.id}`,
+      { append_to_response: "credits,videos" },
+      controller.signal
+    );
+    document.title = `${titleOf(movie.value)} · 123A Movies`;
   } catch (error) {
-    console.error("Failed to fetch movie details:", error);
+    if (!isCancelled(error)) movie.value = null;
   } finally {
-    isLoadingDetails.value = false;
+    if (!controller.signal.aborted) loading.value = false;
   }
+};
+const toggleSaved = async () => {
+  if (!store.user) return signIn();
+  if (saved.value) await store.removeFromWatchlist(item.value);
+  else if ((await store.addToWatchlist(item.value)) === "added")
+    store.addToast(`Saved “${item.value.title}” to your watchlist`);
+};
+const toggleWatched = async () => {
+  if (!store.user) return signIn();
+  if (watched.value) await store.removeFromHistory(watched.value);
+  else await store.markWatched(item.value);
+};
+const playTrailer = async () => {
+  showTrailer.value = !showTrailer.value;
+  if (showTrailer.value) {
+    await nextTick();
+    trailerPanel.value?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "nearest",
+    });
+  }
+};
+const share = async () => {
+  try {
+    if (navigator.share) await navigator.share({ title: titleOf(movie.value), url: window.location.href });
+    else {
+      await navigator.clipboard.writeText(window.location.href);
+      store.addToast("Link copied. Share a great find.");
+    }
+  } catch (error) {
+    if (error.name !== "AbortError")
+      store.addToast("Copy the link from your address bar to share this title.", "error");
+  }
+};
+onMounted(() => {
+  opener = document.activeElement;
+  scrollY = window.scrollY;
+  originalBodyStyles = Object.fromEntries(
+    ["position", "top", "left", "right"].map((key) => [key, document.body.style[key]])
+  );
+  Object.assign(document.body.style, { position: "fixed", top: `-${scrollY}px`, left: "0", right: "0" });
+  dialog.value.showModal();
+  load();
+});
+onUnmounted(() => {
+  controller?.abort();
+  dialog.value?.close();
+  if (originalBodyStyles) Object.assign(document.body.style, originalBodyStyles);
+  window.scrollTo(0, scrollY);
+  if (opener?.isConnected) opener.focus({ preventScroll: true });
+  else document.querySelector("#main-content")?.focus({ preventScroll: true });
 });
 </script>
-
 <template>
-  <Teleport to="body">
-    <div id="outer-container" @click.self="emit('toggleModal')">
-      <!-- Kept outside #inner-container: its transform animation would break this button's fixed positioning -->
-      <button ref="closeBtn" class="close-btn" @click="emit('toggleModal')" aria-label="Close"></button>
-      <div id="inner-container" role="dialog" aria-modal="true" :aria-label="movie?.displayTitle || 'Details'">
-        <div class="modal-body">
-          <div v-if="isLoadingDetails" class="modal-skeleton">
-            <div class="skeleton-poster shimmer"></div>
-            <div class="skeleton-info">
-              <div class="skeleton-line lg shimmer"></div>
-              <div class="skeleton-line shimmer"></div>
-              <div class="skeleton-line shimmer"></div>
-              <div class="skeleton-line shimmer"></div>
-              <div class="skeleton-line sm shimmer"></div>
-              <div class="skeleton-line sm shimmer"></div>
-            </div>
-          </div>
-
-          <div v-else-if="movie" id="MovieInfo">
-            <div id="left-side">
-              <h1>{{ movie.displayTitle }}</h1>
-              <img
-                v-if="movie.poster_path"
-                id="page-img"
-                :src="`https://image.tmdb.org/t/p/w500/${movie.poster_path}`"
-                :alt="`${movie.displayTitle} poster`"
-              />
-            </div>
-            <div id="right-side">
-              <h2 v-if="formattedReleaseDate">{{ formattedReleaseDate }}</h2>
-              <p v-if="movie.overview"><strong>Overview:</strong> {{ movie.overview }}</p>
-              <p v-if="genreNames"><strong>Genre:</strong> {{ genreNames }}</p>
-              <p v-if="movie.mainCast"><strong>Main Cast:</strong> {{ movie.mainCast }}</p>
-              <p v-if="movie.runtime"><strong>Runtime:</strong> {{ movie.runtime }} minutes</p>
-              <p v-if="isTV && movie.number_of_seasons">
-                <strong>Seasons:</strong> {{ movie.number_of_seasons }}
-                <span v-if="movie.number_of_episodes">({{ movie.number_of_episodes }} episodes)</span>
-              </p>
-              <p v-if="movie.vote_average"><strong>Rating:</strong> {{ movie.vote_average.toFixed(1) }} / 10</p>
-              <p v-if="!isTV"><strong>Budget:</strong> {{ movie.formattedBudget }}</p>
-              <p v-if="!isTV"><strong>Revenue:</strong> {{ movie.formattedRevenue }}</p>
-              <div id="trailer-container">
-                <div v-if="movie.trailerUrl" id="Trailer">
-                  <iframe
-                    :src="movie.trailerUrl"
-                    title="Trailer"
-                    frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowfullscreen
-                  ></iframe>
-                </div>
-                <p v-else class="no-trailer">Trailer not available</p>
-              </div>
-              <div class="bottom-actions">
-                <button
-                  id="AddButton"
-                  @click="handleAction"
-                  :class="{ duplicate: saved === 'duplicate' || saved === 'watched' }"
-                >
-                  {{
-                    saved === "duplicate"
-                      ? "Remove from Watchlist"
-                      : saved === "watched"
-                        ? "Remove from Watch History"
-                        : "Add to Watchlist"
-                  }}
-                </button>
-                <button class="close-bottom-btn" @click="emit('toggleModal')">Close</button>
-              </div>
-            </div>
-          </div>
-
-          <div v-else class="modal-loading">Failed to load movie details.</div>
+  <dialog
+    ref="dialog"
+    class="title-dialog"
+    aria-labelledby="detail-title"
+    @cancel.prevent="close"
+    @click="onBackdropClick"
+    @keydown.tab="containTab"
+  >
+    <button class="dialog-close icon-button" aria-label="Close title details" autofocus @click="close">
+      <Icon name="close" :size="20" />
+    </button>
+    <div class="detail-scroll">
+      <div v-if="loading" class="detail-loading" aria-busy="true" aria-label="Loading title details">
+        <div class="skeleton-poster"></div>
+        <h1 id="detail-title">Finding your story…</h1>
+        <div class="skeleton-text"></div>
+        <div class="skeleton-text"></div>
+      </div>
+      <template v-else-if="movie">
+        <div class="detail-backdrop">
+          <img v-if="movie.backdrop_path" :src="imageUrl(movie.backdrop_path, 'w1280')" alt="" />
+          <div class="backdrop-shade"></div>
+          <span class="detail-kind">{{ type === "tv" ? "TV SERIES" : "MOVIE" }}</span>
         </div>
+        <div class="detail-content">
+          <div class="detail-heading">
+            <img
+              v-if="movie.poster_path && !brokenPoster"
+              class="detail-poster"
+              :src="imageUrl(movie.poster_path, 'w185')"
+              alt=""
+              width="100"
+              height="150"
+              @error="brokenPoster = true"
+            />
+            <div class="detail-title-block">
+              <h1 id="detail-title">{{ titleOf(movie) }}</h1>
+              <div class="detail-meta">
+                <span>{{ yearOf(movie.release_date || movie.first_air_date) }}</span
+                ><span v-if="runtime">{{ runtime }}</span
+                ><span v-if="type === 'tv' && movie.number_of_seasons"
+                  >{{ movie.number_of_seasons }}
+                  {{ movie.number_of_seasons === 1 ? "season" : "seasons" }}</span
+                >
+              </div>
+              <AudienceRating class="detail-audience" :item="movie" />
+              <div class="detail-genres">
+                <span v-for="genre in movie.genres" :key="genre.id">{{ genre.name }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-actions">
+            <button
+              class="button primary"
+              :disabled="!!store.user && busy"
+              :aria-pressed="saved"
+              @click="toggleSaved"
+            >
+              <Icon :name="saved ? 'check' : 'plus'" :size="18" />{{
+                saved ? "In watchlist" : "Watchlist"
+              }}</button
+            ><button
+              class="button"
+              :class="{ watched: !!watched }"
+              :disabled="!!store.user && busy"
+              :aria-pressed="!!watched"
+              :aria-label="watched ? 'Remove from watch history' : 'Mark as watched'"
+              @click="toggleWatched"
+            >
+              <Icon name="check" :size="17" />{{ watched ? "Watched" : "Watched it" }}</button
+            ><button
+              v-if="trailer"
+              class="button quiet trailer-button"
+              :aria-expanded="showTrailer"
+              aria-controls="trailer-panel"
+              @click="playTrailer"
+            >
+              <Icon name="play" :size="17" />{{ showTrailer ? "Hide trailer" : "Watch trailer" }}</button
+            ><button class="icon-button share-button" aria-label="Share this title" @click="share">
+              <Icon name="share" :size="18" />
+            </button>
+          </div>
+          <p v-if="!store.user" class="save-hint">Sign in to save titles and keep track of what you watch.</p>
+          <p v-if="store.libraryError" class="library-warning" role="alert">
+            Your library couldn’t be loaded.
+            <button class="text-link" @click="store.loadLibrary()">Try again</button>
+          </p>
+          <div v-if="watched" class="personal-rating">
+            <span>Your rating</span><StarRating :item="watched" />
+          </div>
+          <div v-if="showTrailer && trailer" id="trailer-panel" ref="trailerPanel" class="trailer-panel">
+            <iframe
+              :src="`https://www.youtube.com/embed/${encodeURIComponent(trailer.key)}?autoplay=1`"
+              :title="`${titleOf(movie)} trailer`"
+              allow="autoplay; encrypted-media; picture-in-picture"
+              allowfullscreen
+            ></iframe>
+          </div>
+          <p v-if="movie.tagline" class="tagline">{{ movie.tagline }}</p>
+          <p class="synopsis">{{ movie.overview || "A synopsis isn’t available for this title yet." }}</p>
+          <section v-if="movie.credits?.cast?.length" class="cast-section" aria-labelledby="cast-heading">
+            <h2 id="cast-heading">The people behind the story</h2>
+            <div class="cast-list">
+              <div v-for="person in movie.credits.cast.slice(0, 5)" :key="person.id" class="cast-person">
+                <img
+                  v-if="person.profile_path"
+                  :src="imageUrl(person.profile_path, 'w185')"
+                  alt=""
+                  loading="lazy"
+                  width="56"
+                  height="56"
+                /><span v-else class="cast-placeholder">{{ person.name[0] }}</span
+                ><span
+                  ><strong>{{ person.name }}</strong
+                  ><small>{{ person.character }}</small></span
+                >
+              </div>
+            </div>
+          </section>
+          <details class="more-details">
+            <summary>More about this {{ type === "tv" ? "series" : "film" }}</summary>
+            <dl>
+              <template v-if="releaseDate"
+                ><dt>{{ type === "tv" ? "First aired" : "Release date" }}</dt>
+                <dd>{{ releaseDate }}</dd></template
+              ><template v-if="director"
+                ><dt>Director</dt>
+                <dd>{{ director }}</dd></template
+              ><template v-if="type === 'tv' && movie.created_by?.length"
+                ><dt>Created by</dt>
+                <dd>{{ movie.created_by.map((person) => person.name).join(", ") }}</dd></template
+              ><template v-if="movie.budget"
+                ><dt>Budget</dt>
+                <dd>{{ money(movie.budget) }}</dd></template
+              ><template v-if="movie.revenue"
+                ><dt>Box office</dt>
+                <dd>{{ money(movie.revenue) }}</dd></template
+              ><template v-if="movie.number_of_episodes"
+                ><dt>Episodes</dt>
+                <dd>{{ movie.number_of_episodes }}</dd></template
+              ><template v-if="movie.status"
+                ><dt>Status</dt>
+                <dd>{{ movie.status }}</dd></template
+              ><template v-if="movie.vote_count"
+                ><dt>Audience rating</dt>
+                <dd>{{ movie.vote_count.toLocaleString() }} votes on TMDB</dd></template
+              >
+            </dl>
+          </details>
+        </div>
+      </template>
+      <div v-else class="detail-error empty-state">
+        <Icon name="film" />
+        <h1 id="detail-title">A brief intermission.</h1>
+        <p>We couldn’t load this title. Please try again.</p>
+        <button class="button primary" @click="load">Try again</button>
       </div>
     </div>
-  </Teleport>
+    <Toasts />
+  </dialog>
 </template>
-
 <style scoped>
-#outer-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(7px);
-  z-index: 10;
-  animation: fadeInOverlay 0.25s ease-out;
-  overscroll-behavior: contain;
+.title-dialog {
+  padding: 0;
+  width: min(900px, calc(100% - 48px));
+  max-width: none;
+  max-height: min(90dvh, 1050px);
+  overflow: visible;
+  border: 1px solid #ffffff18;
+  background: #131720;
+  color: var(--text);
+  border-radius: 18px;
+  box-shadow: 0 35px 140px #000b;
 }
-
-@keyframes fadeInOverlay {
+.title-dialog[open] {
+  animation: arrive 0.2s ease-out;
+}
+.title-dialog::backdrop {
+  background: #02050bd1;
+  backdrop-filter: blur(8px);
+}
+@keyframes arrive {
   from {
     opacity: 0;
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
-
-#inner-container {
-  position: relative;
-  width: 80%;
-  max-width: 90vw;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  animation: slideUp 0.3s ease-out;
+.dialog-close {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 3;
+  background: #0a0d16d9;
+  border: 1px solid #ffffff2b;
 }
-
-.modal-body {
+.detail-scroll {
+  max-height: min(90dvh, 1050px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 2rem;
+  border-radius: 18px;
 }
-
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.close-btn {
-  position: fixed;
-  top: max(1rem, 5vh);
-  right: max(1rem, 5vw);
-  width: 40px;
-  height: 40px;
-  background-color: rgba(0, 0, 0, 0.6);
-  border-radius: 50%;
-  z-index: 11;
-  transition: background-color 0.2s;
-}
-
-.close-btn::before,
-.close-btn::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 18px;
-  height: 2px;
-  background-color: white;
-  border-radius: 1px;
-}
-
-.close-btn::before {
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-
-.close-btn::after {
-  transform: translate(-50%, -50%) rotate(-45deg);
-}
-
-.close-btn:hover {
-  background-color: rgba(255, 85, 85, 0.8);
-}
-
-.modal-loading {
-  color: rgba(255, 255, 255, 0.6);
-  text-align: center;
-  padding: 4rem 2rem;
-  font-size: 1.1rem;
-}
-
-.modal-skeleton {
-  display: flex;
-  gap: 2rem;
-  align-items: flex-start;
-}
-
-.skeleton-poster {
-  flex: 1;
-  aspect-ratio: 2/3;
-  border-radius: 8px;
-}
-
-.skeleton-info {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
-
-.skeleton-line {
-  height: 1rem;
-  border-radius: 4px;
-}
-
-.skeleton-line.lg {
-  height: 2.2rem;
-  width: 70%;
-  margin-bottom: 0.5rem;
-}
-
-.skeleton-line.sm {
-  width: 45%;
-}
-
-.shimmer {
-  background:
-    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%),
-    rgba(255, 255, 255, 0.04);
-  background-size:
-    200% 100%,
-    100% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position:
-      200% 0,
-      0 0;
-  }
-  100% {
-    background-position:
-      -200% 0,
-      0 0;
-  }
-}
-
-#MovieInfo {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 2rem;
-}
-
-h1 {
-  margin: 0.5rem 0;
-  font-size: 2.5rem;
-  color: #ffffff;
-  letter-spacing: -0.01em;
-}
-
-#left-side {
-  flex: 1;
-  text-align: center;
-}
-
-#page-img {
-  width: 100%;
-  height: auto;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-#right-side {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  flex: 2;
-  color: #ffffff;
-  text-align: left;
-}
-
-h2 {
-  font-size: 1.3rem;
-  margin: 0.5rem 0;
-  opacity: 0.8;
-}
-
-#right-side > p {
-  font-size: 1rem;
-  margin: 0.5rem 0;
-  line-height: 1.6;
-}
-
-.no-trailer {
-  opacity: 0.5;
-  font-style: italic;
-}
-
-.bottom-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-  align-items: center;
-  margin-top: 1.5rem;
-  flex-wrap: wrap;
-}
-
-#AddButton {
-  padding: 1rem 2rem;
-  max-width: 15rem;
-  background: var(--accent-strong);
-  color: white;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-  font-size: 1rem;
-  transition:
-    filter 0.2s,
-    transform 0.1s;
-}
-
-.close-bottom-btn {
-  display: none;
-  padding: 1rem 2rem;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: background-color 0.2s;
-}
-
-.close-bottom-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-#AddButton:hover {
-  filter: brightness(1.15);
-}
-
-#AddButton:active {
-  transform: scale(0.95);
-}
-
-#AddButton.duplicate {
-  background: #565669;
-}
-
-#trailer-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 1rem 0;
-}
-
-#Trailer {
+.detail-backdrop {
+  height: 260px;
   position: relative;
-  overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-  border-radius: 8px;
-  height: 18rem;
-  width: 25rem;
-  max-width: 100%;
+  background: linear-gradient(140deg, #243b59, #161e2e);
 }
-
-#Trailer iframe {
+.detail-backdrop > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 28%;
+}
+.backdrop-shade {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
+  background: linear-gradient(0deg, #131720, #13172008 100%);
+}
+.detail-kind {
+  position: absolute;
+  bottom: 50px;
+  left: 36px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #d1dced;
+}
+.detail-content {
+  padding: 0 36px 30px;
+  position: relative;
+  margin-top: -28px;
+}
+.detail-heading {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.3rem;
+}
+.detail-poster {
+  width: 100px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 7px;
+  border: 1px solid #ffffff24;
+  flex-shrink: 0;
+}
+.detail-title-block {
+  min-width: 0;
+  padding-bottom: 0.3rem;
+}
+.detail-heading h1 {
+  font-size: clamp(1.5rem, 3.1vw, 2.6rem);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.detail-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  color: #b5bccb;
+  font-size: 0.8rem;
+  margin-top: 0.8rem;
+}
+.detail-audience {
+  margin-top: 0.65rem;
+}
+.detail-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.detail-genres span {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.65rem;
+  background: #ffffff08;
+  border: 1px solid #ffffff12;
+  border-radius: 5px;
+  color: #bfc7d5;
+}
+.detail-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 1.6rem;
+  align-items: center;
+}
+.detail-actions .button {
+  font-size: 0.8rem;
+}
+.share-button {
+  margin-left: auto;
+  background: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+}
+.watched {
+  color: var(--success);
+  border-color: #95dfbb44;
+}
+.save-hint {
+  margin-top: 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+.library-warning {
+  font-size: 0.8rem;
+  color: var(--danger);
+  margin-top: 0.7rem;
+}
+.personal-rating {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+.tagline {
+  font-style: italic;
+  font-size: 0.85rem;
+  color: #b3bed2;
+  margin-top: 1.8rem;
+}
+.synopsis {
+  margin-top: 1rem;
+  color: #c7cdd9;
+  font-size: 0.9rem;
+  line-height: 1.85;
+  max-width: 740px;
+}
+.cast-section {
+  margin-top: 2rem;
+}
+.cast-section h2 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+.cast-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+}
+.cast-person {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.cast-person img,
+.cast-placeholder {
+  height: 56px;
+  width: 56px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.cast-placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+.cast-person strong {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 550;
+  line-height: 1.4;
+}
+.cast-person small {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 0.2rem;
+}
+.more-details {
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+  font-size: 0.8rem;
+}
+.more-details summary {
+  cursor: pointer;
+  padding-block: 1.2rem;
+  color: var(--text-secondary);
+}
+.more-details dl {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 0.8rem 1rem;
+  line-height: 1.5;
+}
+.more-details dt {
+  color: var(--text-muted);
+}
+.more-details dd {
+  margin: 0;
+}
+.trailer-panel {
+  aspect-ratio: 16 / 9;
+  margin-top: 1.5rem;
+  border-radius: 10px;
+  overflow: hidden;
+  background: black;
+}
+.trailer-panel iframe {
   width: 100%;
   height: 100%;
   border: 0;
 }
-
-@media screen and (max-width: 1024px) {
-  #MovieInfo {
-    flex-direction: column;
-  }
-
-  .modal-skeleton {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .skeleton-poster {
-    flex: none;
-    width: 60%;
-    max-width: 260px;
-  }
-
-  .skeleton-info {
-    flex: none;
-    width: 100%;
-  }
-
-  #right-side {
-    text-align: center;
-  }
-
-  h1 {
-    font-size: 2rem;
-  }
-
-  .close-bottom-btn {
-    display: block;
-  }
+.detail-loading {
+  padding: 50px 30px;
 }
-
-@media screen and (max-width: 575px) {
-  #inner-container {
-    width: 95%;
-    max-height: 95vh;
+.detail-loading .skeleton-poster {
+  height: 200px;
+  width: 100%;
+}
+.detail-loading h1 {
+  margin-top: 1rem;
+  font-size: 1.5rem;
+}
+.detail-error {
+  border: 0;
+}
+.detail-error h1 {
+  font-size: 1.5rem;
+}
+@media (max-width: 700px) {
+  .title-dialog {
+    width: calc(100% - 20px);
+    max-height: 94dvh;
+    border-radius: 14px;
   }
-
-  .modal-body {
-    padding: 1rem 1rem 1.5rem;
+  .detail-scroll {
+    max-height: 94dvh;
+    border-radius: 14px;
   }
-
-  #right-side > p {
-    font-size: 0.9rem;
+  .detail-backdrop {
+    height: 165px;
   }
-
-  #AddButton {
-    padding: 0.75rem 1.5rem;
-    font-size: 0.9rem;
+  .detail-kind {
+    left: 20px;
+    bottom: 32px;
+    font-size: 0.52rem;
   }
-
-  .bottom-actions {
-    flex-direction: column;
-    width: 100%;
+  .detail-content {
+    padding: 0 20px 20px;
+    margin-top: -15px;
   }
-
-  .bottom-actions button {
-    width: 100%;
+  .detail-poster {
+    display: none;
   }
-
-  #Trailer {
-    height: 12rem;
-    width: 100%;
+  .detail-heading h1 {
+    font-size: 1.75rem;
+  }
+  .detail-meta {
+    font-size: 0.72rem;
+    gap: 0.65rem;
+  }
+  .detail-actions {
+    gap: 0.5rem;
+    margin-top: 1.1rem;
+  }
+  .detail-actions .button {
+    font-size: 0.74rem;
+    padding-inline: 0.75rem;
+  }
+  .trailer-button {
+    order: 4;
+  }
+  .share-button {
+    width: 38px;
+  }
+  .synopsis {
+    font-size: 0.82rem;
+    line-height: 1.8;
+  }
+  .cast-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem 0.7rem;
+  }
+  .cast-person:nth-child(n + 4) {
+    margin-top: 0.5rem;
   }
 }
 </style>

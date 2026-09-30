@@ -1,112 +1,112 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "../store";
-
+import Icon from "./Icon.vue";
 const store = useStore();
 const router = useRouter();
 const open = ref(false);
 const menuRef = ref(null);
-
-const logout = () => {
-  store.logout();
-  router.push("/");
+const trigger = ref(null);
+const photoFailed = ref(false);
+watch(
+  () => store.user?.photoURL,
+  () => {
+    photoFailed.value = false;
+  }
+);
+const close = () => {
+  open.value = false;
+  trigger.value?.focus();
 };
-
-const onClickOutside = (event) => {
-  if (menuRef.value && !menuRef.value.contains(event.target)) {
+const outside = (event) => {
+  if (!menuRef.value?.contains(event.target)) open.value = false;
+};
+const logout = async () => {
+  if (await store.logout()) {
     open.value = false;
+    router.push("/");
   }
 };
-
-onMounted(() => document.addEventListener("click", onClickOutside));
-onUnmounted(() => document.removeEventListener("click", onClickOutside));
+onMounted(() => document.addEventListener("pointerdown", outside));
+onUnmounted(() => document.removeEventListener("pointerdown", outside));
 </script>
-
 <template>
-  <div class="user-menu" ref="menuRef">
-    <button class="avatar-btn" @click="open = !open" aria-haspopup="menu" :aria-expanded="open" aria-label="Account">
-      <img v-if="store.user?.photoURL" :src="store.user.photoURL" alt="" referrerpolicy="no-referrer" />
-      <span v-else>{{ (store.user?.email || "?")[0].toUpperCase() }}</span>
+  <div
+    ref="menuRef"
+    class="user-menu"
+    @keydown.esc.stop="close"
+    @focusout="
+      (event) => {
+        if (!menuRef.contains(event.relatedTarget)) open = false;
+      }
+    "
+  >
+    <button
+      ref="trigger"
+      class="avatar-btn icon-button"
+      @click="open = !open"
+      :aria-expanded="open"
+      aria-controls="account-panel"
+      aria-label="Your account"
+    >
+      <img
+        v-if="store.user?.photoURL && !photoFailed"
+        :src="store.user.photoURL"
+        @error="photoFailed = true"
+        alt=""
+        referrerpolicy="no-referrer"
+      /><span v-else>{{ (store.user?.email || "?")[0].toUpperCase() }}</span>
     </button>
-    <div v-if="open" class="dropdown" role="menu">
-      <div class="user-email">{{ store.user?.email }}</div>
-      <button class="menu-item danger" role="menuitem" @click="logout">Log out</button>
+    <div v-if="open" id="account-panel" class="account-panel">
+      <p class="eyebrow">YOUR ACCOUNT</p>
+      <p class="user-email">{{ store.user?.email }}</p>
+      <button class="button quiet" @click="logout"><Icon name="logout" :size="18" /> Sign out</button>
     </div>
   </div>
 </template>
-
 <style scoped>
 .user-menu {
   position: relative;
 }
-
 .avatar-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: #283958;
+  color: #cbdcff;
+  border: 1px solid #ffffff14;
   overflow: hidden;
-  background: var(--accent-strong);
-  color: white;
-  font-size: 0.95rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: filter 0.2s;
+  font-size: 0.85rem;
 }
-
-.avatar-btn:hover {
-  filter: brightness(1.15);
-}
-
 .avatar-btn img {
+  display: block;
+  flex: 0 0 100%;
   width: 100%;
   height: 100%;
+  border-radius: inherit;
   object-fit: cover;
 }
-
-.dropdown {
+.account-panel {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 12px);
   right: 0;
-  min-width: 220px;
+  width: min(270px, calc(100vw - 36px));
+  border-radius: 12px;
+  padding: 1.2rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg);
-  padding: 0.5rem;
-  z-index: 6;
 }
-
 .user-email {
-  padding: 0.5rem 0.75rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 0.4rem;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  margin: 0.6rem 0 1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
-
-.menu-item {
+.account-panel .button {
   width: 100%;
-  text-align: left;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text);
-  font-size: 0.9rem;
-  transition: background-color 0.15s, color 0.15s;
-}
-
-.menu-item:hover {
-  background: var(--surface-hover);
-}
-
-.menu-item.danger:hover {
-  background: var(--danger-soft);
-  color: var(--danger);
+  justify-content: flex-start;
 }
 </style>

@@ -1,5 +1,12 @@
 {
   "projects": {
     "default": "cs12-summative"
+  },
+  "targets": {
+    "cs12-summative": {
+      "hosting": {
+        "movies": ["123amovies"]
+      }
+    }
   }
 }

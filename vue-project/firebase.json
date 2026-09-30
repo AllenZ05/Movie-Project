@@ -4,7 +4,7 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "site": "cs12-summative",
+    "target": "movies",
     "public": "dist",
     "ignore": [
       "firebase.json",

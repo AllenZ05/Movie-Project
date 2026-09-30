@@ -1,75 +1,24 @@
-# Movie Project
+# 123A Movies
 
-A responsive, user-friendly website where you can discover any movie or TV show you want. The project integrates data from the TMDb API, ensuring up-to-date content around the clock. It features an intuitive search bar for seamless discovery and selection, and leverages Firebase for user authentication, login management, and storage of user watchlists and watch history
+**[Open 123A Movies →](https://123amovies.web.app/)**
 
-Originally started as a fun project in my grade 12 CS class, the project has since undergone significant improvements with the addition of new features and enhancements. It was initially part of a larger private repository, but once the project was mostly completed, I moved it to this dedicated repo
+Discover movies and TV shows, save your next watch, and keep track of what you’ve seen. Browse without an account, or sign in to build your watchlist and leave personal ratings. Everything runs in your browser—there’s nothing to install.
 
-**Check it out here: https://cs12-summative.web.app/**
+Originally built for my grade 12 CS class, this project has grown into a personal movie and TV discovery app.
 
 ## Features
 
-- **Guest Discovery:** Explore movies and TV without an account, with cinematic featured artwork, weekly trending titles, and top-rated collections
-- **User Authentication:** Secure account creation and login with email or Google, including password reset
-- **Watchlist Management:** Save titles directly from movie cards or details, search and sort your library, and undo removals
-- **Watch History:** Mark watchlist titles as watched to build a dated history of everything you've seen, with personal 5-star ratings
-- **Search and Discovery:** Search movies and TV shows as you type, browse by genre, filter by year, decade, now playing, or coming soon, and separate current popularity from all-time rating volume. Highest/lowest scores default to 1,000+ TMDB ratings, with an adjustable minimum vote count and an explanation of each ranking
-- **Rating Context:** TMDB attribution and vote counts on cards, featured titles, details, and saved library entries. Compact counts expand to exact totals in title details. New saves preserve vote counts; older entries with no stored count show it as unavailable, with current data available in title details. Personal ratings stay separate from TMDB audience scores
-- **Detailed Movie Information:** Access comprehensive movie details, including synopsis, release date, genre, cast, runtime, budget, revenue, ratings, trailers, and more, with shareable links to individual movies and TV shows, accessible dialogs, and actions near the top on mobile
+- **Discover:** Explore trending titles, audience favorites, and upcoming releases.
+- **Find your next watch:** Search movies and TV, filter by genre and release date, and sort by popularity, scores, or rating counts.
+- **Your library:** Save titles, separate movies from TV shows, search and sort your watchlist, and undo removals.
+- **Watch history:** Track what you’ve watched and give it your own five-star rating.
+- **Title details:** See trailers, cast, summaries, TMDB scores and vote counts, and share links to your favorites.
+- **Made for any screen:** Browse on desktop or mobile, with keyboard controls and reduced-motion support.
 
-## Tech Stack and Tools Used 
+## Built with
 
-- **Framework:** Vue.js (with Pinia and Vue Router)
-- **Build Tool:** Vite.js
-- **Backend:** Firebase (User Authentication, Login Management, Data Storage, Hosting)
-- **Programming Languages:** JavaScript, CSS, HTML
-- **APIs:** TMDb API (Movie Data)
-- **Utilities:** Postman, Axios
+Vue, Pinia, Vue Router, Vite, Firebase Authentication, Cloud Firestore, Firebase Hosting, and the TMDB API.
 
-## Running Locally
+## For developers
 
-The hosted site above is the easiest way to use the app. If you want to run or modify it yourself:
-
-<details>
-<summary>Developer setup</summary>
-
-1. **Clone** the repository, `cd vue-project`, and run `npm install`
-2. **Configure** your own Firebase and TMDb keys in a `.env` file inside `vue-project/` (the file is gitignored):
-
-```
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
-VITE_TMDB_API_KEY=...
-```
-
-   - **Firebase:** Create a project in the [Firebase Console](https://console.firebase.google.com/) and add a web app to it (the config values are in Project Settings). Enable Email/Password and Google sign-in under Authentication, create a Cloud Firestore database, and deploy the security rules with `npx firebase-tools deploy --only firestore:rules`
-   - **TMDb:** Create a free account at [themoviedb.org](https://www.themoviedb.org/) and request an API key under Settings > API
-
-   These are client-side keys, inlined into the bundle at build time. That is safe by design: data access is enforced by the Firestore security rules, not by hiding the config, and TMDb keys are intended for client-side use
-
-3. **Run** `npm run dev` for development, or `npm run build && npx firebase-tools deploy` to build and deploy
-
-Both services are free at this scale: TMDb's API is free for non-commercial use, and Firebase's Spark plan cannot incur charges without a payment method attached
-
-</details>
-
-## Verification
-
-From `vue-project/`:
-
-- `npm test` runs regression tests for atomic library updates, overlapping saves, undo, legacy ratings, authentication readiness, redirects, library filtering/sorting, catalog vote thresholds, and rating-count preservation. Firebase services are replaced with deterministic test doubles; these tests do not access live accounts.
-- `npm run build` creates the production build.
-
-The database SDK loads only when a signed-in user needs their library. Existing email-keyed Firestore documents and rules remain compatible; no data migration is required.
-
-## Timeline 
-
-- **May - Jun 2023:** Main development
-- **Jul 2023 - Aug 2023:** Refactoring and small bug fixes
-- **Sep 2023:** Small improvements and movement to this repository
-- **Jan 2024:** Major UI and functionality enhancements and code refactoring
-- **Jul 2026:** Major overhaul: Firestore security fix, modernized UI (genre chips, sorting, year/era filters, toasts, accessibility), deep-linkable movie pages, a pivot from the old cart/checkout flow to Watchlist + Watch History, TV show support, and personal rating
-- **Sep 2026:** Cinematic discovery redesign, public browsing, shared mobile navigation, compact searchable libraries, native title dialogs, reduced-motion support, atomic saves with conflict retries, undo, and authentication/search race fixes
+To work on the code, see the [development guide](docs/DEVELOPMENT.md) for local setup, tests, and deployment. None of these steps are needed to use the live website.
